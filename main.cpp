@@ -4,7 +4,6 @@
 #include <cstdint>
 
 using namespace std;
-class CPU;
 
 
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
@@ -81,53 +80,6 @@ class ShiftInstruction: public Instruction
     void execute() override
     {
     // insert code here
-    }
-};
-
-// Handles PUSH and POP operations 
-class StackInstruction : public Instruction 
-{
-private:
-    string opCode; // "PUSH" or "POP"
-    int regIndex;  // Which register (0-7) to interact with 
-    CPU* cpu;      // Reference to the CPU to access stack functions 
-
-public:
-    StackInstruction(string op, int regIdx, CPU* c) : opCode(op), regIndex(regIdx), cpu(c) {}
-
-    void execute() override 
-    {
-        if (opCode == "PUSH") 
-        {
-            // Get value from register and push it 
-            int8_t val = cpu->getRegisterValue(regIndex); 
-            cpu->pushToStack(val);
-        } 
-        else if (opCode == "POP") 
-        {
-            // Pop value from stack and store it in the register 
-            int8_t val = cpu->popFromStack();
-            cpu->setRegisterValue(regIndex, val);
-            
-            // CRITICAL: Update flags because a destination register changed! 
-            cpu->getFlags()->updateFlags(val, false, false);
-        }
-    }
-};
-
-// Handles resetting individual flags 
-class ResetInstruction : public Instruction 
-{
-private:
-    string flagName; // "CF", "ZF", "OF", or "UF" 
-    CPU* cpu;
-
-public:
-    ResetInstruction(string flag, CPU* c) : flagName(flag), cpu(c) {}
-
-    void execute() override 
-    {
-        cpu->getFlags()->resetFlag(flagName); // Manually forces flag to 0 
     }
 };
 
@@ -234,36 +186,6 @@ class CPU
         // Your Assigned Additions to align with requirements:
         int8_t stackStorage[8]; // The 8-byte system stack managed internally
         int8_t si;              // Stack Index (SI) register starting at 0
-        
-    public:
-    // --- Hardware Interface Helpers---
-        int8_t getRegisterValue(int index) const { return registers[index].getValue(); }
-        void setRegisterValue(int index, int8_t val) { registers[index].setValue(val); }
-        FlagRegister* getFlags() const { return flags; }
-        
-    void pushToStack(int8_t val) 
-    {
-        // Boundary checking: Ensure we don't overflow the 8-byte limit
-        if (si >= 8) 
-        {
-            cout << "System Error: Stack Overflow!" << endl;
-            exit(1); 
-        }
-        stackStorage[si] = val;
-        si++; // Incremented when items are pushed 
-    }
-
-    int8_t popFromStack() 
-    {
-        // Boundary check requirement: Any attempt to pop from an empty stack must cause system to stop and crash
-        if (si <= 0) 
-        {
-            cout << "System Error: Attempted to POP from an empty stack. Machine crashing..." << endl;
-            exit(1); 
-        }
-        si--; // Decremented when an item is popped
-        return stackStorage[si];
-    }
 };
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class Runner
