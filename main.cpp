@@ -31,7 +31,7 @@ class Register
 };
 
 // implementation of the register movement
-class GeneralRegister : Register
+class GeneralRegister : public Register
 {
     
 
@@ -63,22 +63,77 @@ class ArithmeticInstruction : public Instruction
 };
 
 // handles inputOutput command for assembly instructions
-class IOInstruction : Instruction
+class IOInstruction : public Instruction
 {
+    public:
+    void execute() override
+    {
     // insert code here
+    }
 };
 
 
 // handles bitwise operations
-class ShiftInstruction: Instruction
+class ShiftInstruction: public Instruction
 {
+    public:
+    void execute() override
+    {
     // insert code here
+    }
 };
 
 // registers boolean values based on CF OF UF ZF flags
-class FlagRegister
+    class FlagRegister 
 {
-    // insert code here
+private:
+    bool cf; // Carry Flag
+    bool zf; // Zero Flag
+    bool uf; // Underflow Flag
+    bool of; // Overflow Flag
+
+public:
+    FlagRegister() 
+    {
+        cf = false;
+        zf = false;
+        uf = false;
+        of = false;
+    }
+
+    // Getters for display formatting
+    bool getCF() const { return cf; }
+    bool getZF() const { return zf; }
+    bool getUF() const { return uf; }
+    bool getOF() const { return of; }
+
+    // Manual manual reset instruction logic
+    void resetFlag(string flagName) 
+    {
+        if (flagName == "CF") cf = false;
+        else if (flagName == "ZF") zf = false;
+        else if (flagName == "UF") uf = false;
+        else if (flagName == "OF") of = false;
+    }
+
+    // Core validation method to check arithmetic bounds
+    void updateFlags(int result, bool isArithmetic = false, bool logicalCarry = false) 
+    {
+        // 1. Zero Flag (ZF): Set when the result of an operation is zero
+        zf = (result == 0);
+
+        // 2. Overflow Flag (OF): Result greater than 127
+        of = (result > 127);
+
+        // 3. Underflow Flag (UF): Result smaller than -128
+        uf = (result < -128);
+
+        // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
+        if (isArithmetic) 
+        {
+            cf = logicalCarry; 
+        }
+    }
 };
 
 
@@ -123,12 +178,15 @@ class Memory
 class CPU
 {
     private:
-        Memory memory;          // composition: CPU owns memory
-        FlagRegister* flags;    // aggregation: CPU owns external flag register
+        Memory memory;          
+        FlagRegister* flags;    
         GeneralRegister registers[8];
         int pc;
-};
 
+        // Your Assigned Additions to align with requirements:
+        int8_t stackStorage[8]; // The 8-byte system stack managed internally
+        int8_t si;              // Stack Index (SI) register starting at 0
+};
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class Runner
 {
