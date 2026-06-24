@@ -2,10 +2,6 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-#include <fstream>
-#include <cstring>
-#include <cstdio> // for sscanf
-
 
 using namespace std;
 
@@ -34,7 +30,6 @@ class Register
 
 };
 
-// comment
 // implementation of the register movement
 class GeneralRegister : public Register
 {
@@ -193,58 +188,15 @@ class CPU
         int8_t si;              // Stack Index (SI) register starting at 0
 };
 // Loads programs, decodes instructions, delegates execution to `CPU`
-struct ParsedInstruction
-{
-    char command[20];
-    char operand1[20];
-    char operand2[20];
-};
-
 class Runner
 {
-private:
-    CPU* cpu;
-    ParsedInstruction program[100];
-    int instructionCount;
 
-public:
-    Runner()
-    {
-        cpu = NULL;
-        instructionCount = 0;
-    }
-
-    Runner(CPU* c)
-    {
-        cpu = c;
-        instructionCount = 0;
-    }
-
-    void setCPU(CPU* c) {
-        cpu = c;
-    }
-
-    void cleanLine(char line[]) {
-        
-    }
-
-    void parseLine(char line[], ParsedInstruction& inst) {
-        
-    }
-
-    bool loadProgram(const char fileName[]) {
-        
-    }
-
-    void displayInstruction(ParsedInstruction inst) {
-        
-    }
-
-    void run() {
-        
-    }
-
-    int getInstructionCount() {
-        return instructionCount;
-    }
 };
+
+
+int main()
+{
+
+    return 0;
+}
+
