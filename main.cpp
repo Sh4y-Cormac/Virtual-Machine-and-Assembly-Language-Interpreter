@@ -183,7 +183,7 @@ class CPU
         GeneralRegister registers[8];
         int pc;
 
-        // Your Assigned Additions to align with requirements:
+        
         int8_t stackStorage[8]; // The 8-byte system stack managed internally
         int8_t si;              // Stack Index (SI) register starting at 0
 };
