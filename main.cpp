@@ -18,16 +18,6 @@ enum class Opcode
     SHL, SHR, ROL, ROR // Shift
 };
 
-// LIM temp functions to test flag func
-enum class Flags : int
-{
-    OF = 0,
-    UF = 1,
-    CF = 2, 
-    ZF = 3
-};
-// END
-
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -178,9 +168,15 @@ public:
     void setReg(int n, int8_t val) { reg[n] = val; }
     int8_t getMem(int n) const { return mem[n]; }
     void setMem(int n, int8_t val) { mem[n] = val; }
-    void setFlag(Flags f, bool b) 
+    void setFlag(int result, bool isArithmetic, bool carryBit) 
     {
-        testFlags[static_cast<int>(f)] = b;
+        // flags->updateFlags(result, isArithmetic, carryBit);
+        cout << result << ' ' << isArithmetic << ' ' <<  carryBit;
+    }
+    void resetFlag(string flag) 
+    {
+        // flags->resetFlag(flag)
+        cout << flags;
     }
     void pushStack(int8_t value) 
     {
@@ -283,14 +279,19 @@ protected:
     CPU& cpu;
     Opcode opcode;
 
-    void updateReg(int opr1, int8_t result)
+    void updateReg(int opr1, int result, bool isArithmetic=false)
     {
-        // updateFlag(Flags::CF, true);
-        cpu.setReg(opr1, result);
+        updateFlag(result, isArithmetic);
+        cpu.setReg(opr1, static_cast<int8_t>(result));
     }
 
-    void updateFlag(Flags f, bool val)
-    { cpu.setFlag(f, val); }
+    void updateFlag(int result, bool isArithmetic)
+    { 
+        bool carryBit;
+        if (isArithmetic) carryBit = result / (2^8) % 2;    // shift LSB to 9th bit (carry bit) and check 0 or 1
+        else carryBit = false;
+        cpu.setFlag(result, isArithmetic, carryBit); 
+    }
 
 public:
     Instruction(CPU& c, Opcode opc) : cpu(c) { opcode = opc; }
@@ -315,9 +316,9 @@ public:
 
     void execute() override
     {
-        int8_t result;
+        int result;
         int8_t value1 = cpu.getReg(operand1);
-        int8_t value2 = isReg? cpu.getReg(operand2) : operand2; // get value from register[opr2] if is reg  
+        int value2 = isReg? cpu.getReg(operand2) : operand2; // get value from register[opr2] if is reg  
 
         switch (opcode)
         {
@@ -337,7 +338,7 @@ public:
                 break;
         }
 
-        updateReg(operand1, result);
+        updateReg(operand1, result, true);
     }
 };
 
@@ -361,7 +362,7 @@ public:
                 int value;  // read as int then cast to int8_t to avoid reading character
                 cout << "?";
                 cin >> value;
-                updateReg(operand1, static_cast<int8_t>(value));
+                updateReg(operand1, value);
                 break;
             }
             case (Opcode::DISPLAY) :
@@ -434,7 +435,7 @@ public:
         {
             case (Opcode::MOV) :
             {
-                int8_t value;
+                int value;
                 if (indirect) value = cpu.getMem(cpu.getReg(operand2));
                 else value = isReg? cpu.getReg(operand2) : operand2;
                 updateReg(operand1, value);
@@ -505,14 +506,14 @@ public:
 // handles flag reset operation
 class RESETInstruction : public Instruction
 {
+private:
+    string flag;
 public: 
-    Flags flag;
-
-    RESETInstruction(CPU& c, Opcode opc, Flags opr1) : Instruction(c, opc) { flag = opr1; };
+    RESETInstruction(CPU& c, Opcode opc, string opr1) : Instruction(c, opc) { flag = opr1; };
 
     void execute() override
     {
-        updateFlag(flag, false);
+        cpu.resetFlag(flag);
     }
 };
 
