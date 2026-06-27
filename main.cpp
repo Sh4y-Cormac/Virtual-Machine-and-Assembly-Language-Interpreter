@@ -5,7 +5,7 @@
 #include <fstream>
 #include <cstring>
 #include <cstdio> // for sscanf
-
+#include <memory> // for testing
 using namespace std;
 
 enum class Opcode
@@ -83,7 +83,7 @@ public:
     }
 
     // Core validation method to check arithmetic bounds
-    void updateFlags(int result, bool isArithmetic = false, bool logicalCarry = false) 
+    void updateFlags(int result, bool isArithmetic = false) 
     {
         // 1. Zero Flag (ZF): Set when the result of an operation is zero
         zf = (result == 0);
@@ -97,7 +97,7 @@ public:
         // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
         if (isArithmetic) 
         {
-            cf = logicalCarry; 
+            cf = (result >= 256); // 0-255 (uint8_t)
         }
     }
 };
@@ -168,15 +168,21 @@ public:
     void setReg(int n, int8_t val) { reg[n] = val; }
     int8_t getMem(int n) const { return mem[n]; }
     void setMem(int n, int8_t val) { mem[n] = val; }
-    void setFlag(int result, bool isArithmetic, bool carryBit) 
+    void setFlag(int result, bool isArithmetic) 
     {
-        // flags->updateFlags(result, isArithmetic, carryBit);
-        cout << result << ' ' << isArithmetic << ' ' <<  carryBit;
+        // flags->updateFlags(result, isArithmetic);
+        testFlags[0] = (result > 127) | testFlags[0];
+        testFlags[1] = (result < -128) | testFlags[1];
+        testFlags[2] = (result >= 256) | testFlags[2];
+        testFlags[3] = (result == 0) | testFlags[3];
     }
     void resetFlag(string flag) 
     {
         // flags->resetFlag(flag)
-        cout << flags;
+        if (flag == "o") testFlags[0]=false;
+        else if (flag == "u") testFlags[1]=false;
+        else if (flag == "c") testFlags[2]=false;
+        else testFlags[3]=false;
     }
     void pushStack(int8_t value) 
     {
@@ -287,10 +293,7 @@ protected:
 
     void updateFlag(int result, bool isArithmetic)
     { 
-        bool carryBit;
-        if (isArithmetic) carryBit = result / (2^8) % 2;    // shift LSB to 9th bit (carry bit) and check 0 or 1
-        else carryBit = false;
-        cpu.setFlag(result, isArithmetic, carryBit); 
+        cpu.setFlag(result, isArithmetic); 
     }
 
 public:
@@ -304,13 +307,13 @@ class ArithmeticInstruction : public Instruction
 {   
 private:
     int operand1;
-    int8_t operand2;
+    int operand2;
     bool isReg;
 public:
-    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int8_t opr2=1, bool isR=false) : Instruction(c, opc) 
+    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2=1, bool isR=false) : Instruction(c, opc) 
     {
         operand1 = opr1; 
-        operand2 = opr2;
+        operand2 = opr2;    // int operand2 to detect OUZ flag from user input for MOV
         isReg = isR;
     }
 
@@ -381,34 +384,78 @@ class ShiftInstruction : public Instruction
 private:
     int operand1;
     int count;
+
+    void decimalToBinary(int dec, bool* bits)
+    {
+        for (int i=0; i<8; i++)
+        {
+            bits[i] = dec % 2;    // bit i = decimal/(2^i) %2
+            dec /= 2;
+        }        
+        
+        //for testing
+        for (int i=7; i>=0; i--) cout << bits[i];
+        cout << endl;
+    }
+
+    int binaryToDecimal(const bool* bits)
+    {
+        int dec  = 0;
+        int bitValue = 1;
+
+        for (int i=0; i<8; i++)
+        {
+            if (bits[i]) dec += bitValue;   // if binary bit = 1; add 2^i to decimal
+            bitValue *= 2;
+        }
+
+        //for testing
+        for (int i=7; i>=0; i--) cout << bits[i];
+        cout << endl << endl;
+
+        return dec;
+    }
+
+    // fucntion to ensure array index between 0-7
+    int getIndex(int idx)
+    {
+        if (idx > 7) return (idx-8);
+        else if (idx < 0) return (idx+8);
+        else return idx;
+    }
+    
 public:
     ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2) : Instruction(c, opc)
     {
         operand1 = opr1;
-        count = opr2; 
+        count = opr2 % 8;   // range of shifting is 0-7 bits
     } 
 
     void execute() override
     {
+        uint8_t dec = static_cast<uint8_t>(cpu.getReg(operand1));   // cast to unsigned byte to avoid negative value
+        bool binaryBits[8] = {};
+        bool resultBits[8] = {};
+        decimalToBinary(dec, binaryBits);
+
         switch (opcode)
         {
             case (Opcode::ROL) :
-            {
-                // TODO
-            }
+                for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right (wrap around)
+                break;
             case (Opcode::ROR) :
-            {
-                // TODO
-            }
+                for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left (wrap around)
+                break;
             case (Opcode::SHL) :
-            {
-                // tODO
-            }
+                for (int i=count; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right, remaining 0
+                break;
             case (Opcode::SHR) :
-            {
-                // TODO
-            }
+                for (int i=0; i<(8-count); i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left, remaining 0
+                break;
         }
+
+        int value = binaryToDecimal(resultBits);
+        updateReg(operand1, value);
     }
 };
 
@@ -417,14 +464,14 @@ class DataMovementInstruction : public Instruction
 {
 private:
     int operand1;
-    int8_t operand2;
+    int operand2;    // int operand2 to detect OUZ flag from user input for MOV
     bool isReg;
     bool indirect;
 public:
-    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int8_t opr2, bool isR, bool ind=false) : Instruction(c, opc) 
+    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind=false) : Instruction(c, opc) 
     { 
         operand1 = opr1;
-        operand2 = opr2; 
+        operand2 = opr2;
         isReg = isR;
         indirect = ind;
     }
@@ -523,29 +570,40 @@ int main()
     // LIM test code for instruction part
     CPU cpu;
 
-    int n = 14;
-    Instruction* instructions[n] = {
-        new DataMovementInstruction(cpu, Opcode::MOV, 0, 10, false, false),     // 0 R[0] = 10
-        new DataMovementInstruction(cpu, Opcode::MOV, 1, 30, false, false),     // 1 R[1] = 30
-        new ArithmeticInstruction(cpu, Opcode::ADD, 0, 1, true),                // 2 R[0] = R[0] + R[1] = 40
-        new ArithmeticInstruction(cpu, Opcode::DEC, 1),                         // 3 R[1]-- = 29
-        new DataMovementInstruction(cpu, Opcode::STORE, 1, 55, false),          // 4 M[55] = R[1] = 29
-        new DataMovementInstruction(cpu, Opcode::MOV, 2, 55, false, false),     // 5 R[2] = 55
-        new DataMovementInstruction(cpu, Opcode::MOV, 3, 2, true, false),       // 6 R[3] = R[2] = 55
-        new DataMovementInstruction(cpu, Opcode::LOAD, 4, 55, false),           // 7 R[4] = M[55] = 29
-        new DataMovementInstruction(cpu, Opcode::MOV, 5, 2, true, true),        // 8 R[5] = <R[2]> = M[55] = 29
-        new StackInstruction(cpu, Opcode::PUSH, 0),                             // 9 Stack: 10
-        new StackInstruction(cpu, Opcode::PUSH, 1),                             // 10 Stack: 40, 29
-        new StackInstruction(cpu, Opcode::POP, 6),                              // 11 Stack: 40; R[6] = 29
-        new IOInstruction(cpu, Opcode::DISPLAY, 0),                             // 12 R[0] = 10; disp('40')
-        new IOInstruction(cpu, Opcode::INPUT, 7)                                // 13 R[1] = (input)
+    std::unique_ptr<Instruction> instructions[] = {
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 10, false, false),     // 0 R[0] = 10
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 30, false, false),     // 1 R[1] = 30
+        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 0, 1, true),                // 2 R[0] = R[0] + R[1] = 40
+        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::DEC, 1),                         // 3 R[1]-- = 29
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::STORE, 1, 55, false),          // 4 M[55] = R[1] = 29
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 2, 55, false, false),     // 5 R[2] = 55
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 3, 2, true, false),       // 6 R[3] = R[2] = 55
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::LOAD, 4, 55, false),           // 7 R[4] = M[55] = 29
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 5, 2, true, true),        // 8 R[5] = <R[2]> = M[55] = 29
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 0),                             // 9 Stack: 10
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),                             // 10 Stack: 40, 29
+        //std::make_unique<StackInstruction>(cpu, Opcode::POP, 6),                              // 11 Stack: 40; R[6] = 29
+        //std::make_unique<IOInstruction>(cpu, Opcode::DISPLAY, 0),                             // 12 R[0] = 10; disp('40')
+        //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 7),                               // 13 R[1] = (input)
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 88, false, false),
+        //std::make_unique<ShiftInstruction>(cpu, Opcode::SHL, 1, 3),
+        //std::make_unique<ShiftInstruction>(cpu, Opcode::SHR, 1, 2),
+        //std::make_unique<ShiftInstruction>(cpu, Opcode::ROL, 1, 7),
+        //std::make_unique<ShiftInstruction>(cpu, Opcode::ROR, 1, 10),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
+        std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "u"),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 128, false, false),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 127, false, false),
+        std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 1, 200, false)
     };
 
-    for (int i = 0; i < n; i++) {
-        instructions[i]->execute();
-        cpu.dump(i);
-        delete instructions[i];
-        instructions[i] = nullptr;
+    int i = 0;
+    for (auto& inst : instructions) 
+    {
+        inst->execute();
+        cpu.dump(i++);
     }
 
     return 0;
