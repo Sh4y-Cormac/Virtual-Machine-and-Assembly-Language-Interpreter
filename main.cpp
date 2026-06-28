@@ -18,6 +18,20 @@ enum class Opcode
     SHL, SHR, ROL, ROR // Shift
 };
 
+enum class ExecutionResult
+{
+    Success,            // No error
+    InvalidRegister,    // Invalid reg (not 0-7)
+    InvalidFlag,        // Invalid flag reg (OUCZ)
+    MemoryFault,        // Invalid mem address
+    DivisionByZero,     // Div 0, A
+    PushToFullStack,    // Pushing into full stack(8)
+    PopFromEmptyStack,  // Popping from empty stack (0)
+    Halt                // End
+};
+
+bool handleExecResult(ExecutionResult, int);
+
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -164,6 +178,7 @@ public:
     int8_t mem[64] = {};
     int8_t reg[8] = {};
     bool testFlags[4] = {};
+    bool validReg(int n) const { return (n >= 0 && n <= 7); };
     int8_t getReg(int n) const { return reg[n]; }
     void setReg(int n, int8_t val) { reg[n] = val; }
     int8_t getMem(int n) const { return mem[n]; }
@@ -179,9 +194,9 @@ public:
     void resetFlag(string flag) 
     {
         // flags->resetFlag(flag)
-        if (flag == "o") testFlags[0]=false;
-        else if (flag == "u") testFlags[1]=false;
-        else if (flag == "c") testFlags[2]=false;
+        if (flag == "of") testFlags[0]=false;
+        else if (flag == "uf") testFlags[1]=false;
+        else if (flag == "cf") testFlags[2]=false;
         else testFlags[3]=false;
     }
     void pushStack(int8_t value) 
@@ -299,7 +314,7 @@ protected:
 public:
     Instruction(CPU& c, Opcode opc) : cpu(c) { opcode = opc; }
     virtual ~Instruction() {} // destructor
-    virtual void execute() = 0; // pure virtual: causes classes to implement.
+    virtual ExecutionResult execute() = 0; // pure virtual: causes classes to implement.
 };
 
 // Handles 'ADD', 'SUB' and other arithmetic instructions for assembly
@@ -317,7 +332,7 @@ public:
         isReg = isR;
     }
 
-    void execute() override
+    ExecutionResult execute() override
     {
         int result;
         int8_t value1 = cpu.getReg(operand1);
@@ -337,11 +352,14 @@ public:
                 result = value1 * value2; // MUL A, B (A = A*B)
                 break;
             case (Opcode::DIV) :
+                if (!value1) return ExecutionResult::DivisionByZero;    // if value1 is 0 raise error
+
                 result = value2 / value1; // DIV A, B (A = B/A)
                 break;
         }
 
         updateReg(operand1, result, true);
+        return ExecutionResult::Success;
     }
 };
 
@@ -356,8 +374,10 @@ public:
         operand1 = opr1;
     }
 
-    void execute() override
+    ExecutionResult execute() override
     {
+        if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+
         switch (opcode)
         {
             case (Opcode::INPUT) :
@@ -375,6 +395,8 @@ public:
                 break;
             }
         } 
+
+        return ExecutionResult::Success;
     }
 };
 
@@ -431,8 +453,10 @@ public:
         count = opr2 % 8;   // range of shifting is 0-7 bits
     } 
 
-    void execute() override
+    ExecutionResult execute() override
     {
+        if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+
         uint8_t dec = static_cast<uint8_t>(cpu.getReg(operand1));   // cast to unsigned byte to avoid negative value
         bool binaryBits[8] = {};
         bool resultBits[8] = {};
@@ -456,6 +480,7 @@ public:
 
         int value = binaryToDecimal(resultBits);
         updateReg(operand1, value);
+        return ExecutionResult::Success;
     }
 };
 
@@ -476,7 +501,7 @@ public:
         indirect = ind;
     }
 
-    void execute() override
+    ExecutionResult execute() override
     {
         switch (opcode)
         {
@@ -503,6 +528,8 @@ public:
                 break;
             }
         }
+
+        return ExecutionResult::Success;
     }
 };
 
@@ -514,7 +541,7 @@ private:
 public:
     StackInstruction(CPU& c, Opcode opc, int opr1) : Instruction(c, opc) { operand1 = opr1; }
 
-    void execute() override
+    ExecutionResult execute() override
     {
         switch (opcode)
         {
@@ -524,8 +551,7 @@ public:
 
                 if (SI >= 8)
                 {
-                    cout << "Error: Pushing to full stack.\n";
-                    return;
+                    return ExecutionResult::PushToFullStack;
                 }
 
                 int8_t value = cpu.getReg(operand1);
@@ -538,8 +564,7 @@ public:
 
                 if (SI <= 0)
                 {
-                    cout << "Error: Popping from empty stack.\n";
-                    return;
+                    return ExecutionResult::PopFromEmptyStack;
                 }
 
                 int8_t value = cpu.popStack();
@@ -547,6 +572,7 @@ public:
                 break;
             }
         }
+        return ExecutionResult::Success;
     }
 };
 
@@ -558,9 +584,14 @@ private:
 public: 
     RESETInstruction(CPU& c, Opcode opc, string opr1) : Instruction(c, opc) { flag = opr1; };
 
-    void execute() override
+    ExecutionResult execute() override
     {
-        cpu.resetFlag(flag);
+        if (flag=="of" || flag=="uf" || flag=="cf" || flag=="zf")
+        {
+            cpu.resetFlag(flag);
+            return ExecutionResult::Success;
+        }
+        else return ExecutionResult::InvalidFlag;
     }
 };
 
@@ -590,21 +621,69 @@ int main()
         //std::make_unique<ShiftInstruction>(cpu, Opcode::SHR, 1, 2),
         //std::make_unique<ShiftInstruction>(cpu, Opcode::ROL, 1, 7),
         //std::make_unique<ShiftInstruction>(cpu, Opcode::ROR, 1, 10),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
-        std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "u"),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 128, false, false),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 127, false, false),
-        std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 1, 200, false)
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
+        //std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "u"),
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 128, false, false),
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 127, false, false),
+        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 1, 200, false)
+        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 0, false, false),
+        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::DIV, 1, 100, false),
+        //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 8),
+        //std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "someflag"),
+        //std::make_unique<StackInstruction>(cpu, Opcode::POP, 1)
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1)
     };
 
-    int i = 0;
+    int i = 1;
     for (auto& inst : instructions) 
     {
-        inst->execute();
-        cpu.dump(i++);
+        ExecutionResult execResult = inst->execute();
+        bool running = handleExecResult(execResult, i);
+        if (running) cpu.dump(i);
+        else cout << "\n\"program crashed\"\n";
+        i++;
     }
 
     return 0;
+}
+
+bool handleExecResult(ExecutionResult execResult, int pc)
+{
+    switch (execResult)
+    {
+        case (ExecutionResult::Success) :
+            return true;
+        case (ExecutionResult::Halt) :
+            cout << "Execution completed.";
+            return false;
+        case (ExecutionResult::InvalidRegister) :
+            cerr << "Error: Invalid Register in Instruction " << pc;
+            break;
+        case (ExecutionResult::InvalidFlag) :
+            cerr << "Error: Invalid Flag Register in Instruction " << pc;
+            break;  
+        case (ExecutionResult::MemoryFault) :
+            cerr << "Error: Invalid Memory Address in Instruction " << pc;
+            break;  
+        case (ExecutionResult::DivisionByZero) :
+            cerr << "Error: Division by Zero in Instruction " << pc;
+            break;  
+        case (ExecutionResult::PushToFullStack) :
+            cerr << "Error: Pushing to full Stack in Instruction " << pc;
+            break;  
+        case (ExecutionResult::PopFromEmptyStack) :
+            cerr << "Error: Popping from empty Stack in Instruction " << pc;
+            break;      
+    }
+    return false;
 }
