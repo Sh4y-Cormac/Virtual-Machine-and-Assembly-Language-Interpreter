@@ -4,14 +4,16 @@
 #include <cstdint>
 #include <fstream>
 #include <cstring>
+#include <iomanip> // for setw and fill
 #include <cstdio> // for sscanf
 #include <memory> // for testing
 using namespace std;
 
 enum class Flags
 {
-    OF, UF, CF, ZF
+    OF, UF, CF, ZF, COUNT
 };
+
 enum class Opcode
 { 
     ADD, SUB, MUL, DIV, INC, DEC, // Arithmetic
@@ -83,11 +85,14 @@ public:
         of = false;
     }
 
-    // Getters for display formatting
-    bool getCF() const { return cf; }
-    bool getZF() const { return zf; }
-    bool getUF() const { return uf; }
-    bool getOF() const { return of; }
+    // Getter for display formatting
+    bool getFlag(Flags flag) const
+    {
+        if (flag == Flags::OF) return of;
+        else if (flag == Flags::UF) return uf;
+        else if (flag == Flags::CF) return cf;
+        else return zf;
+    }
 
     // Manual manual reset instruction logic
     void resetFlag(Flags flagName) 
@@ -161,17 +166,21 @@ class CPU
 private:
     Memory memory;          
     FlagRegister* flags;    
-    GeneralRegister registers[8];
-    int pc;
+    GeneralRegister* registers;
+    int pc=0;
 
     // Your Assigned Additions to align with requirements:
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
     int si=0;               // Stack Index (SI) register starting at 0
 
 public:
+    // cpu functions done by LIM
+    CPU(FlagRegister* flag, GeneralRegister* reg) : flags(flag), registers(reg) {}
+
     int8_t getMemory(int memAdr) const { return memory.read(memAdr); }
-    bool getFlags() const { return flags; }
+    bool getFlag(Flags flag) const { return flags->getFlag(flag); }
     int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
+    int getPC() const { return pc; }
 
     void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
     void updateFlags(int result, bool isArithmetic) { flags->updateFlags(result, isArithmetic); }
@@ -187,73 +196,8 @@ public:
 
     void dump() const;
 
-    /* LIM temp function for testing instruction
-    class
-    {
-    public:
-        int8_t data[8] = {};
-        int SI = 0;
-    } testStack;
-    int8_t mem[64] = {};
-    int8_t reg[8] = {};
-    bool testFlags[4] = {};
-    bool validReg(int n) const { return (n >= 0 && n <= 7); };
-    bool validMem(int n) const { return (n >= 0 && n <= 63); };
-    int8_t getRegister(int n) const { return reg[n]; }
-    void setReg(int n, int8_t val) { reg[n] = val; }
-    int8_t getMemory(int n) const { return mem[n]; }
-    void setMem(int n, int8_t val) { mem[n] = val; }
-    void setFlag(int result, bool isArithmetic) 
-    {
-        // flags->updateFlags(result, isArithmetic);
-        testFlags[0] = (result > 127) | testFlags[0];
-        testFlags[1] = (result < -128) | testFlags[1];
-        testFlags[2] = (result >= 256) | testFlags[2];
-        testFlags[3] = (result == 0) | testFlags[3];
-    }
-    void resetFlag(string flag) 
-    {
-        // flags->resetFlag(flag)
-        if (flag == "of") testFlags[0]=false;
-        else if (flag == "uf") testFlags[1]=false;
-        else if (flag == "cf") testFlags[2]=false;
-        else testFlags[3]=false;
-    }
-    void pushStack(int8_t value) 
-    {
-        testStack.data[getSI()] = value;
-        setSI(1);
-    }
-    int8_t popStack() 
-    {
-        setSI(-1);
-        return testStack.data[getSI()];
-    }
-    int getSI() const{ return testStack.SI;}
-    void setSI(int n) { testStack.SI+=n; };
-
-    void dump(int inst) const 
-    {
-        cout << "inst" << inst << endl;
-        cout << "reg#";
-        for (int i = 0; i < 8; i++) cout << static_cast<int>(getRegister(i)) << "#";
-        cout << "\nflag#";
-        for (int i = 0; i < 4; i++) cout << static_cast<int>(testFlags[i]) << "#";
-        cout << "\nmem\n";
-        for (int i = 0; i < 64; i++) 
-        {
-            cout << static_cast<int>(mem[i]) << "#";
-            if (!((i+1)%8)) cout << endl;
-        }
-        cout << "stack (not in output format)\n";
-        for (int i = 0; i < getSI(); i++) 
-        {
-            cout << static_cast<int>(testStack.data[i]) << "#";
-        }
-        if (!getSI()) cout << "no stack data";
-        cout << endl << endl;
-    }
-    END */
+    // temp stack check
+    int8_t getStack(int n) const { return stackStorage[n]; }
 };
 
 // Loads programs, decodes instructions, delegates execution to `CPU`
@@ -411,11 +355,13 @@ public:
     ExecutionResult execute() override;
 };
 
-// LIM main for testing 
 int main()
 {
     // LIM test code for instruction part
-    CPU cpu;
+    FlagRegister flags;
+    GeneralRegister registers[8];
+
+    CPU cpu(&flags, &registers[0]);
 
     std::unique_ptr<Instruction> instructions[] = {
         //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 10, false, false),     // 0 R[0] = 10
@@ -432,15 +378,15 @@ int main()
         //std::make_unique<StackInstruction>(cpu, Opcode::POP, 6),                              // 11 Stack: 40; R[6] = 29
         //std::make_unique<IOInstruction>(cpu, Opcode::DISPLAY, 0),                             // 12 R[0] = 10; disp('40')
         //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 7),                               // 13 R[1] = (input)
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 88, false, false),
-        //std::make_unique<ShiftInstruction>(cpu, Opcode::SHL, 1, 3),
-        //std::make_unique<ShiftInstruction>(cpu, Opcode::SHR, 1, 2),
-        //std::make_unique<ShiftInstruction>(cpu, Opcode::ROL, 1, 7),
-        //std::make_unique<ShiftInstruction>(cpu, Opcode::ROR, 1, 10),
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
-        //std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "u"),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 88, false, false),
+        std::make_unique<ShiftInstruction>(cpu, Opcode::SHL, 1, 3),
+        std::make_unique<ShiftInstruction>(cpu, Opcode::SHR, 1, 2),
+        std::make_unique<ShiftInstruction>(cpu, Opcode::ROL, 1, 7),
+        std::make_unique<ShiftInstruction>(cpu, Opcode::ROR, 1, 10),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
+        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
+        std::make_unique<RESETInstruction>(cpu, Opcode::RESET, Flags::UF),
         //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 128, false, false),
         //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 127, false, false),
         //std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 1, 200, false)
@@ -449,20 +395,21 @@ int main()
         //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 8),
         //std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "someflag"),
         //std::make_unique<StackInstruction>(cpu, Opcode::POP, 1)
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1)
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
+        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1)
     };
 
     int i = 1;
     for (auto& inst : instructions) 
     {
+        cout << "instruction" << i << endl;
         ExecutionResult execResult = inst->execute();
         bool running = handleExecResult(execResult, i);
         if (running) cpu.dump();
@@ -508,7 +455,37 @@ bool handleExecResult(ExecutionResult execResult, int pc)
 // function defintion for cpu.dump
 void CPU::dump() const
 {
+    string flagName[] = {"OF", "UF", "CF", "ZF"};
 
+    cout << "#Begin#\n";
+
+    cout << "#Registers#";
+    for (int i = 0; i < 8; i++) 
+        cout << setw(4) << setfill('0') << static_cast<int>(getRegister(i)) << "#";
+
+    cout << "\n#Flags#";
+    for (int i = 0; i < static_cast<int>(Flags::COUNT); i++) 
+        cout << flagName[i] << "#" << static_cast<int>(getFlag(static_cast<Flags>(i))) << "#";
+
+    cout << "\n#PC#" << setw(4) << setfill('0') << getPC() << "#";
+
+    cout << "\n#Memory#\n#";
+    for (int i = 0; i < 64; i++) 
+    {
+        cout << setw(4) << setfill('0') << static_cast<int>(getMemory(i)) << "#";
+        if (!((i+1)%8)) cout << "\n#";
+    }
+
+    cout << "End#\n";
+
+    // test stack
+    cout << "stack (not in output format)\n";
+    for (int i = 0; i < getSI(); i++) 
+    {
+        cout << static_cast<int>(getStack(i)) << "#";
+    }
+    if (!getSI()) cout << "no stack data";
+    cout << endl << endl;
 }
 
 // function defintion for instruction base and derived class
@@ -644,14 +621,16 @@ void ShiftInstruction::decimalToBinary(int dec, bool* bits)
 
 int ShiftInstruction::binaryToDecimal(const bool* bits)
 {
-int dec  = 0;
-int bitValue = 1;
+    int dec  = 0;
+    int bitValue = 1;
 
     for (int i=0; i<8; i++)
     {
         if (bits[i]) dec += bitValue;   // if binary bit = 1; add 2^i to decimal
         bitValue *= 2;
     }
+
+    return dec;
 }
 
 int ShiftInstruction::getIndex(int idx)
