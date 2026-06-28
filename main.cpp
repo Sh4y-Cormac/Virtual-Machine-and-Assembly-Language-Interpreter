@@ -8,6 +8,10 @@
 #include <memory> // for testing
 using namespace std;
 
+enum class Flags
+{
+    OF, UF, CF, ZF
+};
 enum class Opcode
 { 
     ADD, SUB, MUL, DIV, INC, DEC, // Arithmetic
@@ -40,9 +44,7 @@ protected:
 
 public:
     Register() : value()
-    {
-
-    }
+    {}
 
     void setValue(int8_t val)
     {
@@ -88,16 +90,16 @@ public:
     bool getOF() const { return of; }
 
     // Manual manual reset instruction logic
-    void resetFlag(string flagName) 
+    void resetFlag(Flags flagName) 
     {
-        if (flagName == "CF") cf = false;
-        else if (flagName == "ZF") zf = false;
-        else if (flagName == "UF") uf = false;
-        else if (flagName == "OF") of = false;
+        if (flagName == Flags::CF) cf = false;
+        else if (flagName == Flags::ZF) zf = false;
+        else if (flagName == Flags::UF) uf = false;
+        else if (flagName == Flags::OF) of = false;
     }
 
     // Core validation method to check arithmetic bounds
-    void updateFlags(int result, bool isArithmetic = false) 
+    void updateFlags(int result, bool isArithmetic) 
     {
         // 1. Zero Flag (ZF): Set when the result of an operation is zero
         zf = (result == 0);
@@ -164,11 +166,28 @@ private:
 
     // Your Assigned Additions to align with requirements:
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
-    int8_t si;              // Stack Index (SI) register starting at 0
+    int si=0;               // Stack Index (SI) register starting at 0
 
 public:
+    int8_t getMemory(int memAdr) const { return memory.read(memAdr); }
+    bool getFlags() const { return flags; }
+    int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
 
-    // LIM temp function for testing instruction
+    void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
+    void updateFlags(int result, bool isArithmetic) { flags->updateFlags(result, isArithmetic); }
+    void resetFlag(Flags flag) { flags->resetFlag(flag); }
+    void setMemory(int memAdr, int8_t value) { memory.write(memAdr, value); }
+
+    void pushStack(int8_t value) { stackStorage[si++] = value; }
+    int8_t popStack() { return stackStorage[--si]; }
+    int getSI() const { return si; }
+
+    bool isValidReg(int n) const { return (n >= 0 && n <= 7); };
+    bool isValidMem(int n) const { return (n >= 0 && n <= 63); };
+
+    void dump() const;
+
+    /* LIM temp function for testing instruction
     class
     {
     public:
@@ -180,9 +199,9 @@ public:
     bool testFlags[4] = {};
     bool validReg(int n) const { return (n >= 0 && n <= 7); };
     bool validMem(int n) const { return (n >= 0 && n <= 63); };
-    int8_t getReg(int n) const { return reg[n]; }
+    int8_t getRegister(int n) const { return reg[n]; }
     void setReg(int n, int8_t val) { reg[n] = val; }
-    int8_t getMem(int n) const { return mem[n]; }
+    int8_t getMemory(int n) const { return mem[n]; }
     void setMem(int n, int8_t val) { mem[n] = val; }
     void setFlag(int result, bool isArithmetic) 
     {
@@ -217,7 +236,7 @@ public:
     {
         cout << "inst" << inst << endl;
         cout << "reg#";
-        for (int i = 0; i < 8; i++) cout << static_cast<int>(getReg(i)) << "#";
+        for (int i = 0; i < 8; i++) cout << static_cast<int>(getRegister(i)) << "#";
         cout << "\nflag#";
         for (int i = 0; i < 4; i++) cout << static_cast<int>(testFlags[i]) << "#";
         cout << "\nmem\n";
@@ -234,7 +253,7 @@ public:
         if (!getSI()) cout << "no stack data";
         cout << endl << endl;
     }
-    // END
+    END */
 };
 
 // Loads programs, decodes instructions, delegates execution to `CPU`
@@ -301,7 +320,7 @@ protected:
     CPU& cpu;
     Opcode opcode;
     void updateReg(int opr1, int result, bool isArithmetic=false);
-    void updateFlag(int result, bool isArithmetic);
+    void updateFlags(int result, bool isArithmetic);
 public:
     Instruction(CPU& c, Opcode opc);
     virtual ~Instruction() = default; // destructor
@@ -386,9 +405,9 @@ public:
 class RESETInstruction : public Instruction
 {
 private:
-    string flag;
+    Flags flag;
 public: 
-    RESETInstruction(CPU& c, Opcode opc, string opr1);
+    RESETInstruction(CPU& c, Opcode opc, Flags opr1);
     ExecutionResult execute() override;
 };
 
@@ -446,7 +465,7 @@ int main()
     {
         ExecutionResult execResult = inst->execute();
         bool running = handleExecResult(execResult, i);
-        if (running) cpu.dump(i);
+        if (running) cpu.dump();
         else cout << "\n\"program crashed\"\n";
         i++;
     }
@@ -486,16 +505,22 @@ bool handleExecResult(ExecutionResult execResult, int pc)
     return false;
 }
 
+// function defintion for cpu.dump
+void CPU::dump() const
+{
+
+}
+
 // function defintion for instruction base and derived class
 void Instruction::updateReg(int opr1, int result, bool isArithmetic)
 {
-    updateFlag(result, isArithmetic);
-    cpu.setReg(opr1, static_cast<int8_t>(result));
+    updateFlags(result, isArithmetic);
+    cpu.setRegister(opr1, static_cast<int8_t>(result));
 }
 
-void Instruction::updateFlag(int result, bool isArithmetic)
+void Instruction::updateFlags(int result, bool isArithmetic)
 { 
-    cpu.setFlag(result, isArithmetic); 
+    cpu.updateFlags(result, isArithmetic); 
 }
 
 Instruction::Instruction(CPU& c, Opcode opc) 
@@ -512,13 +537,13 @@ ArithmeticInstruction::ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int o
 
 ExecutionResult ArithmeticInstruction::execute()
 {
-    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-    if (isReg && !cpu.validReg(operand2)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (isReg && !cpu.isValidReg(operand2)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
 
     int result;
     ExecutionResult execResult;
-    int8_t value1 = cpu.getReg(operand1);
-    int value2 = isReg? cpu.getReg(operand2) : operand2; // get value from register[opr2] if is reg  
+    int8_t value1 = cpu.getRegister(operand1);
+    int value2 = isReg? cpu.getRegister(operand2) : operand2; // get value from register[opr2] if is reg  
 
     switch (opcode)
     {
@@ -577,7 +602,7 @@ IOInstruction::IOInstruction(CPU& c, Opcode opc, int opr1)
 
 ExecutionResult IOInstruction::execute()
 {
-    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
 
     switch (opcode)
     {
@@ -604,7 +629,7 @@ void IOInstruction::input()
 
 void IOInstruction::display() const
 {
-    int value = static_cast<int>(cpu.getReg(operand1)); // static cast to int to print as number (int8_t will print char)
+    int value = static_cast<int>(cpu.getRegister(operand1)); // static cast to int to print as number (int8_t will print char)
     cout << "DISPLAY: R[" << operand1 << "]:" << value << endl << endl;
 }
 
@@ -644,9 +669,9 @@ ShiftInstruction::ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2)
 
 ExecutionResult ShiftInstruction::execute()
 {
-    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
 
-    uint8_t dec = static_cast<uint8_t>(cpu.getReg(operand1));   // cast to unsigned byte to avoid negative value
+    uint8_t dec = static_cast<uint8_t>(cpu.getRegister(operand1));   // cast to unsigned byte to avoid negative value
     bool binaryBits[8] = {};
     bool resultBits[8] = {};
     decimalToBinary(dec, binaryBits);
@@ -716,8 +741,8 @@ DataMovementInstruction::DataMovementInstruction(CPU& c, Opcode opc, int opr1, i
 
 ExecutionResult DataMovementInstruction::execute()
 {
-    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-    if (isReg && !cpu.validReg(operand2)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+    if (isReg && !cpu.isValidReg(operand2)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
 
     switch (opcode)
     {
@@ -738,11 +763,11 @@ ExecutionResult DataMovementInstruction::mov()
 
     if (indirect) 
     {
-        int memAdr = cpu.getReg(operand2);
-        if (!cpu.validMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
-        value = cpu.getMem(memAdr);   
+        int memAdr = cpu.getRegister(operand2);
+        if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
+        value = cpu.getMemory(memAdr);   
     }
-    else value = isReg? cpu.getReg(operand2) : operand2;
+    else value = isReg? cpu.getRegister(operand2) : operand2;
 
     updateReg(operand1, value);
     return ExecutionResult::Success;
@@ -750,21 +775,21 @@ ExecutionResult DataMovementInstruction::mov()
 
 ExecutionResult DataMovementInstruction::load()
 {
-    int memAdr = isReg? cpu.getReg(operand2) : operand2;
-    if (!cpu.validMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
+    int memAdr = isReg? cpu.getRegister(operand2) : operand2;
+    if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
 
-    int8_t value = cpu.getMem(memAdr);
+    int8_t value = cpu.getMemory(memAdr);
     updateReg(operand1, value);
     return ExecutionResult::Success;
 }
 
 ExecutionResult DataMovementInstruction::store()
 {
-    int memAdr = isReg? cpu.getReg(operand2) : operand2;
-    if (!cpu.validMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
+    int memAdr = isReg? cpu.getRegister(operand2) : operand2;
+    if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
 
-    int8_t value = cpu.getReg(operand1);
-    cpu.setMem(memAdr, value);
+    int8_t value = cpu.getRegister(operand1);
+    cpu.setMemory(memAdr, value);
     return ExecutionResult::Success;
 }
 
@@ -792,12 +817,12 @@ ExecutionResult StackInstruction::push()
 
     if (SI >= 8) return ExecutionResult::PushToFullStack;
 
-    int8_t value = cpu.getReg(operand1);
+    int8_t value = cpu.getRegister(operand1);
     cpu.pushStack(value);
     return ExecutionResult::Success;
 }
 
-ExecutionResult StackInstruction::push()
+ExecutionResult StackInstruction::pop()
 {
     int SI = cpu.getSI();
 
@@ -808,14 +833,14 @@ ExecutionResult StackInstruction::push()
     return ExecutionResult::Success;
 }
 
-RESETInstruction::RESETInstruction(CPU& c, Opcode opc, string opr1) 
+RESETInstruction::RESETInstruction(CPU& c, Opcode opc, Flags opr1) 
     : Instruction(c, opc),
     flag(opr1)
 {}
 
 ExecutionResult RESETInstruction::execute()
 {
-    if (flag=="of" || flag=="uf" || flag=="cf" || flag=="zf")
+    if (flag==Flags::OF || flag==Flags::UF || flag==Flags::CF || flag==Flags::ZF)
     {
         cpu.resetFlag(flag);
         return ExecutionResult::Success;
