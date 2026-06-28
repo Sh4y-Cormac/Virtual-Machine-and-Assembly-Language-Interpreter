@@ -299,21 +299,11 @@ class Instruction
 protected:
     CPU& cpu;
     Opcode opcode;
-
-    void updateReg(int opr1, int result, bool isArithmetic=false)
-    {
-        updateFlag(result, isArithmetic);
-        cpu.setReg(opr1, static_cast<int8_t>(result));
-    }
-
-    void updateFlag(int result, bool isArithmetic)
-    { 
-        cpu.setFlag(result, isArithmetic); 
-    }
-
+    void updateReg(int opr1, int result, bool isArithmetic=false);
+    void updateFlag(int result, bool isArithmetic);
 public:
-    Instruction(CPU& c, Opcode opc) : cpu(c) { opcode = opc; }
-    virtual ~Instruction() {} // destructor
+    Instruction(CPU& c, Opcode opc);
+    virtual ~Instruction() = default; // destructor
     virtual ExecutionResult execute() = 0; // pure virtual: causes classes to implement.
 };
 
@@ -325,42 +315,8 @@ private:
     int operand2;
     bool isReg;
 public:
-    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2=1, bool isR=false) : Instruction(c, opc) 
-    {
-        operand1 = opr1; 
-        operand2 = opr2;    // int operand2 to detect OUZ flag from user input for MOV
-        isReg = isR;
-    }
-
-    ExecutionResult execute() override
-    {
-        int result;
-        int8_t value1 = cpu.getReg(operand1);
-        int value2 = isReg? cpu.getReg(operand2) : operand2; // get value from register[opr2] if is reg  
-
-        switch (opcode)
-        {
-            case (Opcode::ADD) :
-            case (Opcode::INC) :
-                result = value1 + value2; // ADD A, B (A = A+B); INC A (A = A+1)
-                break;
-            case (Opcode::SUB) :
-            case (Opcode::DEC) :
-                result = value1 - value2; // SUB A, B (A = A-B); DEC A (A = A-1)
-                break;
-            case (Opcode::MUL) :
-                result = value1 * value2; // MUL A, B (A = A*B)
-                break;
-            case (Opcode::DIV) :
-                if (!value1) return ExecutionResult::DivisionByZero;    // if value1 is 0 raise error
-
-                result = value2 / value1; // DIV A, B (A = B/A)
-                break;
-        }
-
-        updateReg(operand1, result, true);
-        return ExecutionResult::Success;
-    }
+    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2=1, bool isR=false);
+    ExecutionResult execute() override;
 };
 
 // handles inputOutput command for assembly instructions
@@ -369,35 +325,8 @@ class IOInstruction : public Instruction
 private:
     int operand1;
 public:
-    IOInstruction(CPU& c, Opcode opc, int opr1) : Instruction(c, opc) 
-    { 
-        operand1 = opr1;
-    }
-
-    ExecutionResult execute() override
-    {
-        if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-
-        switch (opcode)
-        {
-            case (Opcode::INPUT) :
-            {
-                int value;  // read as int then cast to int8_t to avoid reading character
-                cout << "?";
-                cin >> value;
-                updateReg(operand1, value);
-                break;
-            }
-            case (Opcode::DISPLAY) :
-            {
-                int value = static_cast<int>(cpu.getReg(operand1)); // static cast to int to print as number (int8_t will print char)
-                cout << "DISPLAY: R[" << operand1 << "]:" << value << endl << endl;
-                break;
-            }
-        } 
-
-        return ExecutionResult::Success;
-    }
+    IOInstruction(CPU& c, Opcode opc, int opr1);
+    ExecutionResult execute() override;
 };
 
 // handles bitwise operations
@@ -406,82 +335,12 @@ class ShiftInstruction : public Instruction
 private:
     int operand1;
     int count;
-
-    void decimalToBinary(int dec, bool* bits)
-    {
-        for (int i=0; i<8; i++)
-        {
-            bits[i] = dec % 2;    // bit i = decimal/(2^i) %2
-            dec /= 2;
-        }        
-        
-        //for testing
-        for (int i=7; i>=0; i--) cout << bits[i];
-        cout << endl;
-    }
-
-    int binaryToDecimal(const bool* bits)
-    {
-        int dec  = 0;
-        int bitValue = 1;
-
-        for (int i=0; i<8; i++)
-        {
-            if (bits[i]) dec += bitValue;   // if binary bit = 1; add 2^i to decimal
-            bitValue *= 2;
-        }
-
-        //for testing
-        for (int i=7; i>=0; i--) cout << bits[i];
-        cout << endl << endl;
-
-        return dec;
-    }
-
-    // fucntion to ensure array index between 0-7
-    int getIndex(int idx)
-    {
-        if (idx > 7) return (idx-8);
-        else if (idx < 0) return (idx+8);
-        else return idx;
-    }
-    
+    void decimalToBinary(int dec, bool* bits);
+    int binaryToDecimal(const bool* bits);
+    int getIndex(int idx);  // fucntion to ensure array index between 0-7
 public:
-    ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2) : Instruction(c, opc)
-    {
-        operand1 = opr1;
-        count = opr2 % 8;   // range of shifting is 0-7 bits
-    } 
-
-    ExecutionResult execute() override
-    {
-        if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-
-        uint8_t dec = static_cast<uint8_t>(cpu.getReg(operand1));   // cast to unsigned byte to avoid negative value
-        bool binaryBits[8] = {};
-        bool resultBits[8] = {};
-        decimalToBinary(dec, binaryBits);
-
-        switch (opcode)
-        {
-            case (Opcode::ROL) :
-                for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right (wrap around)
-                break;
-            case (Opcode::ROR) :
-                for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left (wrap around)
-                break;
-            case (Opcode::SHL) :
-                for (int i=count; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right, remaining 0
-                break;
-            case (Opcode::SHR) :
-                for (int i=0; i<(8-count); i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left, remaining 0
-                break;
-        }
-
-        int value = binaryToDecimal(resultBits);
-        updateReg(operand1, value);
-        return ExecutionResult::Success;
-    }
+    ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2);
+    ExecutionResult execute() override;
 };
 
 // handles movement of data between registers and memory
@@ -493,44 +352,8 @@ private:
     bool isReg;
     bool indirect;
 public:
-    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind=false) : Instruction(c, opc) 
-    { 
-        operand1 = opr1;
-        operand2 = opr2;
-        isReg = isR;
-        indirect = ind;
-    }
-
-    ExecutionResult execute() override
-    {
-        switch (opcode)
-        {
-            case (Opcode::MOV) :
-            {
-                int value;
-                if (indirect) value = cpu.getMem(cpu.getReg(operand2));
-                else value = isReg? cpu.getReg(operand2) : operand2;
-                updateReg(operand1, value);
-                break;
-            }
-            case (Opcode::LOAD) :
-            {
-                int memAdr = isReg? cpu.getReg(operand2) : operand2;
-                int8_t value = cpu.getMem(memAdr);
-                updateReg(operand1, value);
-                break;
-            }
-            case (Opcode::STORE) :
-            {
-                int memAdr = isReg? cpu.getReg(operand2) : operand2;
-                int8_t value = cpu.getReg(operand1);
-                cpu.setMem(memAdr, value);
-                break;
-            }
-        }
-
-        return ExecutionResult::Success;
-    }
+    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind=false);
+    ExecutionResult execute() override;
 };
 
 // handles stack operation
@@ -539,41 +362,8 @@ class StackInstruction : public Instruction
 private:
     int operand1;
 public:
-    StackInstruction(CPU& c, Opcode opc, int opr1) : Instruction(c, opc) { operand1 = opr1; }
-
-    ExecutionResult execute() override
-    {
-        switch (opcode)
-        {
-            case (Opcode::PUSH) :
-            {
-                int SI = cpu.getSI();
-
-                if (SI >= 8)
-                {
-                    return ExecutionResult::PushToFullStack;
-                }
-
-                int8_t value = cpu.getReg(operand1);
-                cpu.pushStack(value);
-                break;
-            }
-            case (Opcode::POP) :
-            {
-                int SI = cpu.getSI();
-
-                if (SI <= 0)
-                {
-                    return ExecutionResult::PopFromEmptyStack;
-                }
-
-                int8_t value = cpu.popStack();
-                updateReg(operand1, value);
-                break;
-            }
-        }
-        return ExecutionResult::Success;
-    }
+    StackInstruction(CPU& c, Opcode opc, int opr1);
+    ExecutionResult execute() override;
 };
 
 // handles flag reset operation
@@ -582,17 +372,8 @@ class RESETInstruction : public Instruction
 private:
     string flag;
 public: 
-    RESETInstruction(CPU& c, Opcode opc, string opr1) : Instruction(c, opc) { flag = opr1; };
-
-    ExecutionResult execute() override
-    {
-        if (flag=="of" || flag=="uf" || flag=="cf" || flag=="zf")
-        {
-            cpu.resetFlag(flag);
-            return ExecutionResult::Success;
-        }
-        else return ExecutionResult::InvalidFlag;
-    }
+    RESETInstruction(CPU& c, Opcode opc, string opr1);
+    ExecutionResult execute() override;
 };
 
 // LIM main for testing 
@@ -657,6 +438,7 @@ int main()
     return 0;
 }
 
+// helper function to handle execution result and errors
 bool handleExecResult(ExecutionResult execResult, int pc)
 {
     switch (execResult)
@@ -686,4 +468,240 @@ bool handleExecResult(ExecutionResult execResult, int pc)
             break;      
     }
     return false;
+}
+
+// function defintion for instruction base and derived class
+void Instruction::updateReg(int opr1, int result, bool isArithmetic)
+{
+    updateFlag(result, isArithmetic);
+    cpu.setReg(opr1, static_cast<int8_t>(result));
+}
+
+void Instruction::updateFlag(int result, bool isArithmetic)
+{ 
+    cpu.setFlag(result, isArithmetic); 
+}
+
+Instruction::Instruction(CPU& c, Opcode opc) 
+    : cpu(c), 
+    opcode(opc) 
+{}
+
+ArithmeticInstruction::ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR) 
+    : Instruction(c, opc), 
+    operand1(opr1), 
+    operand2(opr2), // int data type operand2 to detect OUZ flag from user input 
+    isReg(isR)
+{}
+
+ExecutionResult ArithmeticInstruction::execute()
+{
+    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+
+    int result;
+    int8_t value1 = cpu.getReg(operand1);
+    int value2 = isReg? cpu.getReg(operand2) : operand2; // get value from register[opr2] if is reg  
+
+    switch (opcode)
+    {
+        case (Opcode::ADD) :
+        case (Opcode::INC) :
+            result = value1 + value2;   // ADD A, B (A = A+B); INC A (A = A+1)
+            break;
+        case (Opcode::SUB) :
+        case (Opcode::DEC) :
+            result = value1 - value2;   // SUB A, B (A = A-B); DEC A (A = A-1)
+            break;
+        case (Opcode::MUL) :
+            result = value1 * value2;   // MUL A, B (A = A*B)
+            break;
+        case (Opcode::DIV) :
+            if (!value1) return ExecutionResult::DivisionByZero;    // raise error if value1 is 0 
+            result = value2 / value1;   // DIV A, B (A = B/A)
+            break;
+    }
+
+    updateReg(operand1, result, true);
+    return ExecutionResult::Success;
+}
+
+IOInstruction::IOInstruction(CPU& c, Opcode opc, int opr1) 
+    : Instruction(c, opc),
+    operand1(opr1)
+{}
+
+ExecutionResult IOInstruction::execute()
+{
+    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+
+    switch (opcode)
+    {
+        case (Opcode::INPUT) :
+        {
+            int value;  // read as int then cast to int8_t to avoid reading character
+            cout << "?";
+            cin >> value;
+            updateReg(operand1, value);
+            break;
+        }
+        case (Opcode::DISPLAY) :
+        {
+            int value = static_cast<int>(cpu.getReg(operand1)); // static cast to int to print as number (int8_t will print char)
+            cout << "DISPLAY: R[" << operand1 << "]:" << value << endl << endl;
+            break;
+        }
+    } 
+
+    return ExecutionResult::Success;
+}
+
+void ShiftInstruction::decimalToBinary(int dec, bool* bits)
+{
+    for (int i=0; i<8; i++)
+    {
+        bits[i] = dec % 2;    // bit i = decimal/(2^i) %2
+        dec /= 2;
+    }        
+}
+
+int ShiftInstruction::binaryToDecimal(const bool* bits)
+{
+int dec  = 0;
+int bitValue = 1;
+
+    for (int i=0; i<8; i++)
+    {
+        if (bits[i]) dec += bitValue;   // if binary bit = 1; add 2^i to decimal
+        bitValue *= 2;
+    }
+}
+
+int ShiftInstruction::getIndex(int idx)
+{
+    if (idx > 7) return (idx-8);
+    else if (idx < 0) return (idx+8);
+    else return idx;
+}
+    
+ShiftInstruction::ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2) 
+    : Instruction(c, opc),
+    operand1(opr1),
+    count(opr2 % 8) // range of shifting is 0-7 bits
+{} 
+
+ExecutionResult ShiftInstruction::execute()
+{
+    if (!cpu.validReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
+
+    uint8_t dec = static_cast<uint8_t>(cpu.getReg(operand1));   // cast to unsigned byte to avoid negative value
+    bool binaryBits[8] = {};
+    bool resultBits[8] = {};
+    decimalToBinary(dec, binaryBits);
+
+    switch (opcode)
+    {
+        case (Opcode::ROL) :
+            for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right (wrap around)
+            break;
+        case (Opcode::ROR) :
+            for (int i=0; i<8; i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left (wrap around)
+            break;
+        case (Opcode::SHL) :
+            for (int i=count; i<8; i++) resultBits[i] = binaryBits[getIndex(i-count)];  // result bit = binary bit from right, remaining 0
+            break;
+        case (Opcode::SHR) :
+            for (int i=0; i<(8-count); i++) resultBits[i] = binaryBits[getIndex(i+count)];  // result bit = binary bit from left, remaining 0
+            break;
+    }
+
+    int value = binaryToDecimal(resultBits);
+    updateReg(operand1, value);
+    return ExecutionResult::Success;
+}
+
+DataMovementInstruction::DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind) 
+    : Instruction(c, opc), 
+    operand1(opr1), 
+    operand2(opr2), // int data type operand2 to detect OUZ flag from user input 
+    isReg(isR),
+    indirect(ind)
+{}
+
+ExecutionResult DataMovementInstruction::execute()
+{
+    switch (opcode)
+    {
+        case (Opcode::MOV) :
+        {
+            int value;
+            if (indirect) value = cpu.getMem(cpu.getReg(operand2));
+            else value = isReg? cpu.getReg(operand2) : operand2;
+            updateReg(operand1, value);
+            break;
+        }
+        case (Opcode::LOAD) :
+        {
+            int memAdr = isReg? cpu.getReg(operand2) : operand2;
+            int8_t value = cpu.getMem(memAdr);
+            updateReg(operand1, value);
+            break;
+        }
+        case (Opcode::STORE) :
+        {
+            int memAdr = isReg? cpu.getReg(operand2) : operand2;
+            int8_t value = cpu.getReg(operand1);
+            cpu.setMem(memAdr, value);
+            break;
+        }
+    }
+
+    return ExecutionResult::Success;
+}
+
+StackInstruction::StackInstruction(CPU& c, Opcode opc, int opr1) 
+    : Instruction(c, opc),
+    operand1(opr1)
+{}
+
+ExecutionResult StackInstruction::execute()
+{
+    switch (opcode)
+    {
+        case (Opcode::PUSH) :
+        {
+            int SI = cpu.getSI();
+
+            if (SI >= 8) return ExecutionResult::PushToFullStack;
+
+            int8_t value = cpu.getReg(operand1);
+            cpu.pushStack(value);
+            break;
+        }
+        case (Opcode::POP) :
+        {
+            int SI = cpu.getSI();
+
+            if (SI <= 0) return ExecutionResult::PopFromEmptyStack;
+
+            int8_t value = cpu.popStack();
+            updateReg(operand1, value);
+            break;
+        }
+    }
+    return ExecutionResult::Success;
+}
+
+RESETInstruction::RESETInstruction(CPU& c, Opcode opc, string opr1) 
+    : Instruction(c, opc),
+    flag(opr1)
+{}
+
+ExecutionResult RESETInstruction::execute()
+{
+    if (flag=="of" || flag=="uf" || flag=="cf" || flag=="zf")
+    {
+        cpu.resetFlag(flag);
+        return ExecutionResult::Success;
+    }
+    else return ExecutionResult::InvalidFlag;
 }
