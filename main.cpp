@@ -6,7 +6,7 @@
 #include <cstring>
 #include <iomanip> // for setw and fill
 #include <cstdio> // for sscanf
-#include <memory> // for testing
+#include <memory> // temp for testing
 using namespace std;
 
 enum class Flags
@@ -60,7 +60,7 @@ public:
 };
 
 // comment
-// implementation of the register movement
+// implementation of the register movement  (inheritance from Register)
 class GeneralRegister : public Register
 {
     
@@ -131,9 +131,7 @@ private:
 
 public:
     Memory(size_t size = 64) : storage(size,0)
-    {
-
-    }
+    {}
 
     void write(size_t address, int8_t value)
     {
@@ -201,18 +199,25 @@ public:
 };
 
 // Loads programs, decodes instructions, delegates execution to `CPU`
-struct ParsedInstruction
+class ParsedCommand
 {
-    char command[20];
-    char operand1[20];
-    char operand2[20];
+private:
+    string opcode;
+    string operand1;
+    string operand2;
+public:   
+    ParsedCommand(string opc, string opr1="", string opr2="") 
+        : opcode(opc), operand1(opr1), operand2(opr2) {}
+    string getOpcode() const { return opcode; }
+    string getOperand1() const { return operand1; }
+    string getOperand2() const { return operand2; }
 };
 
 class Runner
 {
 private:
     CPU* cpu;
-    ParsedInstruction program[100];
+    ParsedCommand* programs;
     int instructionCount;
 
 public:
@@ -236,7 +241,7 @@ public:
         
     }
 
-    void parseLine(char line[], ParsedInstruction& inst) {
+    void parseLine(char line[], ParsedCommand& inst) {
         
     }
 
@@ -244,7 +249,7 @@ public:
         return true;
     }
 
-    void displayInstruction(ParsedInstruction inst) {
+    void displayInstruction(ParsedCommand inst) {
         
     }
 
@@ -271,7 +276,7 @@ public:
     virtual ExecutionResult execute() = 0; // pure virtual: causes classes to implement.
 };
 
-// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly
+// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (polymorphism of Instuction)
 class ArithmeticInstruction : public Instruction
 {   
 private:
@@ -287,7 +292,7 @@ public:
     ExecutionResult execute() override;
 };
 
-// handles inputOutput command for assembly instructions
+// handles inputOutput command for assembly instructions (polymorphism of Instuction)
 class IOInstruction : public Instruction
 {
 private:
@@ -299,7 +304,7 @@ public:
     ExecutionResult execute() override;
 };
 
-// handles bitwise operations
+// handles bitwise operations (polymorphism of Instuction)
 class ShiftInstruction : public Instruction
 {
 private:
@@ -317,7 +322,7 @@ public:
     ExecutionResult execute() override;
 };
 
-// handles movement of data between registers and memory
+// handles movement of data between registers and memory (polymorphism of Instuction)
 class DataMovementInstruction : public Instruction
 {
 private:
@@ -333,7 +338,7 @@ public:
     ExecutionResult store();
 };
 
-// handles stack operation
+// handles stack operation (polymorphism of Instuction)
 class StackInstruction : public Instruction
 {
 private:
@@ -345,7 +350,7 @@ public:
     ExecutionResult execute() override;
 };
 
-// handles flag reset operation
+// handles flag reset operation (polymorphism of Instuction)
 class RESETInstruction : public Instruction
 {
 private:
@@ -478,7 +483,7 @@ void CPU::dump() const
 
     cout << "End#\n";
 
-    // test stack
+    // temp printing stack
     cout << "stack (not in output format)\n";
     for (int i = 0; i < getSI(); i++) 
     {
