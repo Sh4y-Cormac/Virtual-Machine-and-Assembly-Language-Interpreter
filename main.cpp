@@ -6,7 +6,6 @@
 #include <cstring>
 #include <iomanip> // for setw and fill
 #include <cstdio> // for sscanf
-#include <memory> // temp for testing
 using namespace std;
 
 enum class Flags
@@ -193,9 +192,6 @@ public:
     bool isValidMem(int n) const { return (n >= 0 && n <= 63); };
 
     void dump() const;
-
-    // temp stack check
-    int8_t getStack(int n) const { return stackStorage[n]; }
 };
 
 // Loads programs, decodes instructions, delegates execution to `CPU`
@@ -362,66 +358,6 @@ public:
 
 int main()
 {
-    // LIM test code for instruction part
-    FlagRegister flags;
-    GeneralRegister registers[8];
-
-    CPU cpu(&flags, &registers[0]);
-
-    std::unique_ptr<Instruction> instructions[] = {
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 10, false, false),     // 0 R[0] = 10
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 30, false, false),     // 1 R[1] = 30
-        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 0, 1, true),                // 2 R[0] = R[0] + R[1] = 40
-        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::DEC, 1),                         // 3 R[1]-- = 29
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::STORE, 1, 55, false),          // 4 M[55] = R[1] = 29
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 2, 55, false, false),     // 5 R[2] = 55
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 3, 2, true, false),       // 6 R[3] = R[2] = 55
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::LOAD, 4, 55, false),           // 7 R[4] = M[55] = 29
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 5, 2, true, true),        // 8 R[5] = <R[2]> = M[55] = 29
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 0),                             // 9 Stack: 10
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),                             // 10 Stack: 40, 29
-        //std::make_unique<StackInstruction>(cpu, Opcode::POP, 6),                              // 11 Stack: 40; R[6] = 29
-        //std::make_unique<IOInstruction>(cpu, Opcode::DISPLAY, 0),                             // 12 R[0] = 10; disp('40')
-        //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 7),                               // 13 R[1] = (input)
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 88, false, false),
-        std::make_unique<ShiftInstruction>(cpu, Opcode::SHL, 1, 3),
-        std::make_unique<ShiftInstruction>(cpu, Opcode::SHR, 1, 2),
-        std::make_unique<ShiftInstruction>(cpu, Opcode::ROL, 1, 7),
-        std::make_unique<ShiftInstruction>(cpu, Opcode::ROR, 1, 10),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 1, false, false),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 0, false, false),
-        std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, -129, false, false),
-        std::make_unique<RESETInstruction>(cpu, Opcode::RESET, Flags::UF),
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 0, 128, false, false),
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 127, false, false),
-        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::ADD, 1, 200, false)
-        //std::make_unique<DataMovementInstruction>(cpu, Opcode::MOV, 1, 0, false, false),
-        //std::make_unique<ArithmeticInstruction>(cpu, Opcode::DIV, 1, 100, false),
-        //std::make_unique<IOInstruction>(cpu, Opcode::INPUT, 8),
-        //std::make_unique<RESETInstruction>(cpu, Opcode::RESET, "someflag"),
-        //std::make_unique<StackInstruction>(cpu, Opcode::POP, 1)
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1),
-        //std::make_unique<StackInstruction>(cpu, Opcode::PUSH, 1)
-    };
-
-    int i = 1;
-    for (auto& inst : instructions) 
-    {
-        cout << "instruction" << i << endl;
-        ExecutionResult execResult = inst->execute();
-        bool running = handleExecResult(execResult, i);
-        if (running) cpu.dump();
-        else cout << "\n\"program crashed\"\n";
-        i++;
-    }
-
     return 0;
 }
 
@@ -482,15 +418,6 @@ void CPU::dump() const
     }
 
     cout << "End#\n";
-
-    // temp printing stack
-    cout << "stack (not in output format)\n";
-    for (int i = 0; i < getSI(); i++) 
-    {
-        cout << static_cast<int>(getStack(i)) << "#";
-    }
-    if (!getSI()) cout << "no stack data";
-    cout << endl << endl;
 }
 
 // function defintion for instruction base and derived class
