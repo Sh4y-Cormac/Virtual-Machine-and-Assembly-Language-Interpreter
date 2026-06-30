@@ -248,7 +248,41 @@ public:
     }
 
     void parseLine(char line[], ParsedCommand& inst) {
-        
+        char opcodeStr[20] = "";
+        char operand1Str[20] = "";
+        char operand2Str[20] = "";
+
+        int parsedItems = sscanf(line, "%19s %19s %19s", opcodeStr, operand1Str, operand2Str);
+
+        if (parsedItems == 2 && strcmp(opcodeStr, "INPUT") == 0)
+        {
+            // if operand1Str is R3, it will strip R and stay with 3
+            string regNum = "";
+            {
+                if (operand1Str[0] == 'R')
+                {
+                    regNum = string(1, operand1Str[1]);
+                }
+                else {
+                    regNum = operand1Str;
+                }
+
+                // Update the ParsedCommand object with the cleaned data
+                inst = ParsedCommand(opcodeStr, regNum, "");
+            }
+        }
+        else if (parsedItems >= 2 && strcmp(opcodeStr, "DISPLAY") == 0)
+        {
+            string regNum = (operand1Str[0] == 'R') ? string(1, operand1Str[1]) : operand1Str;
+            inst = ParsedCommand(opcodeStr, regNum, "");
+        }
+
+        else if (parsedItems >= 3 && strcmp(opcodeStr, "MOV") == 0)
+        {
+            string regNum1 = (operand1Str[0] == 'R') ? string(1, operand1Str[1]) : operand1Str;
+            string regNum2 = (operand2Str[0] == 'R') ? string(1, operand2Str[1]) : operand2Str;
+            inst = ParsedCommand(opcodeStr, regNum1, regNum2);
+        }
     }
 
     bool loadProgram(const char fileName[]) {
@@ -260,7 +294,43 @@ public:
     }
 
     void run() {
-        
+        if (cpu == NULL || programs == NULL)
+        {
+            cerr << "Error: CPU or Program Memory not initialized." << endl;
+            return;
+        }
+        for (int i = 0; i < instructionCount; i++)
+        {
+            ParsedCommand inst = programs[i];
+            string op = inst.getOpcode();
+
+            // Convert parsed string operands back to integers for execution
+            int op1 = inst.getOperand1().empty() ? 0 : stoi(inst.getOperand1());
+            int op2 = inst.getOperand2().empty() ? 0 : stoi(inst.getOperand2());
+
+            ExecutionResult result = ExecutionResult::Success;
+            // Delegate to the appropriate Instruction subclass
+            if (op == "INPUT") {
+                IOInstruction inputInst(*cpu, Opcode::INPUT, op1);
+                result = inputInst.execute();
+            }
+            else if (op == "DISPLAY") {
+                IOInstruction displayInst(*cpu, Opcode::DISPLAY, op1);
+                result = displayInst.execute();
+            }
+            else if (op == "MOV") {
+                // Assuming standard Register-to-Register MOV for now. 
+                // You can expand the boolean flags (isReg, indirect) based on parsing logic later.
+                DataMovementInstruction movInst(*cpu, Opcode::MOV, op1, op2, true, false);
+                result = movInst.execute();
+            }
+            // Add other instruction routing (ADD, SUB, PUSH, etc.) here as needed...
+
+            // Handle any CPU faults or errors using your existing helper function
+            if (!handleExecResult(result, i)) {
+                break; // Stop execution on critical failure
+            }
+        }
     }
 
     int getInstructionCount() {
@@ -744,7 +814,7 @@ ExecutionResult StackInstruction::execute()
         case (Opcode::PUSH) :
             return push();
         case (Opcode::POP) :
-            return push(); 
+            return pop(); 
         default:
             return ExecutionResult::InvalidInstruction;
     }
