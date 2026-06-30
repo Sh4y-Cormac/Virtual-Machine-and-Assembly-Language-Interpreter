@@ -36,6 +36,7 @@ enum class ExecutionResult
 
 bool handleExecResult(ExecutionResult, int);
 
+// MADE BY UMAR
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -57,11 +58,17 @@ public:
     }
 };
 
-// comment
+// MADE BY UMAR
 // implementation of the register movement  (inheritance from Register)
 class GeneralRegister : public Register
 {
-    
+    public:
+        GeneralRegister()
+        {
+            // base class constructor already initializes to 0,
+            // just for best practice to be explicit in derived classes
+            value = 0;
+        }
 
 };
 
@@ -121,6 +128,7 @@ public:
     }
 };
 
+// MADE BY UMAR
 // Handles storage and addressing logic over a vector of bytes
 class Memory
 {
@@ -137,7 +145,6 @@ public:
             storage[i] = 0;
         }
     }
-
     void write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
@@ -149,18 +156,15 @@ public:
             cerr << "Memory Access Violation: Write at " << address << endl;
         }
     }
-
     int8_t read(size_t address) const
     {
         if (address < Memory_Size)
         {
             return storage[address];
         }
-
         cerr << "Memory Access Violation: Read at " << address << endl;
         return 0;
     }
-    //insert code here
 };
 
 // Contains registers, memory, PC, executes instructions 
@@ -364,6 +368,21 @@ public:
 
 int main()
 {
+    // initialize the 64 bit memory
+    Memory myMemory;
+
+    //initialize the flag register
+    FlagRegister myFlags;
+
+    // initialize the R0-R7 general registers array
+    GeneralRegister myRegisters[8];
+
+    // Send everything to the CPU for processing
+    CPU myCPU(&myFlags, myRegisters);
+
+    // testing script
+    myCPU.dump();
+    
     return 0;
 }
 
