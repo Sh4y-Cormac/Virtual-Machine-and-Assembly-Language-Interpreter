@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <vector>
 #include <cstdint>
 #include <fstream>
 #include <cstring>
@@ -126,15 +125,22 @@ public:
 class Memory
 {
 private:
-    vector<int8_t> storage;
+    static const size_t Memory_Size = 64; // define the fixed size of the memory
+    int8_t storage[Memory_Size]; // making the array with the fixed size
 
 public:
-    Memory(size_t size = 64) : storage(size,0)
-    {}
+    Memory()
+    {
+        // initialize all index to 0 (constructor)
+        for (size_t i = 0; i < Memory_Size; i++)
+        {
+            storage[i] = 0;
+        }
+    }
 
     void write(size_t address, int8_t value)
     {
-        if (address < storage.size())
+        if (address < Memory_Size)
         {
             storage[address] = value;
         }
@@ -146,7 +152,7 @@ public:
 
     int8_t read(size_t address) const
     {
-        if (address < storage.size())
+        if (address < Memory_Size)
         {
             return storage[address];
         }
