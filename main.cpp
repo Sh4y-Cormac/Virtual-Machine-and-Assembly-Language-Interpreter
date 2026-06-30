@@ -216,126 +216,12 @@ private:
     string operand1;
     string operand2;
 public:   
+    ParsedCommand() : opcode(""), operand1(""), operand2("") {}
     ParsedCommand(string opc, string opr1="", string opr2="") 
         : opcode(opc), operand1(opr1), operand2(opr2) {}
     string getOpcode() const { return opcode; }
     string getOperand1() const { return operand1; }
     string getOperand2() const { return operand2; }
-};
-
-class Runner
-{
-private:
-    CPU* cpu;
-    ParsedCommand* programs;
-    int instructionCount;
-
-public:
-    Runner()
-    {
-        cpu = NULL;
-         programs = NULL;
-        instructionCount = 0;
-    }
-
-    Runner(CPU* c)
-    {
-        cpu = c;
-        programs = NULL;
-        instructionCount = 0;
-    }
-
-    void setCPU(CPU* c) {
-        cpu = c;
-    }
-
-    void cleanLine(char line[])
-{
-    for (int i = 0; line[i] != '\0'; i++)
-    {
-        if (line[i] == ',' || line[i] == '\t')
-            line[i] = ' ';
-    }
-}
-
-    void parseLine(char line[], ParsedCommand& inst)
-{
-    cleanLine(line);
-
-    string opcode = "", op1 = "", op2 = "";
-    stringstream ss(line);
-
-    ss >> opcode >> op1 >> op2;
-
-    inst = ParsedCommand(opcode, op1, op2);
-}
-
-    bool loadProgram(const char fileName[]) {
-        ifstream file(fileName);
-        if (!file)
-        {
-            cerr << "Cannot open asm file.\n";
-            return false;
-        }
-
-         programs = new ParsedCommand[100];
-        instructionCount = 0;
-
-        char line[100];
-
-        while (file.getline(line, 100))
-        {
-            ParsedCommand inst("", "", "");
-            parseLine(line, inst);
-
-            if (inst.getOpcode() == "")
-                continue;
-
-            programs[instructionCount] = inst;
-            instructionCount++;
-        }
-
-        file.close();
-
-        if (cpu != NULL)
-            cpu->resetPC();
-
-        return true;
-    
-    }
-
-    void displayInstruction(ParsedCommand inst)
-{
-    cout << inst.getOpcode();
-
-    if (inst.getOperand1() != "")
-        cout << " " << inst.getOperand1();
-
-    if (inst.getOperand2() != "")
-        cout << ", " << inst.getOperand2();
-
-    cout << endl;
-}
-
-    void run() 
-    {
-        for (int i = 0; i < instructionCount; i++)
-        {
-            displayInstruction(programs[i]);
-
-            // Later: connect this instruction to the correct class
-            // Example: MOV -> DataMovementInstruction
-            // Example: ADD -> ArithmeticInstruction
-
-            if (cpu != NULL)
-                cpu->incrementPC();
-        }
-        
-    }
-
-    int getInstructionCount() {
-        return instructionCount;
-    }
 };
 
 // all assembly commands logic go here e.g 'ADD' or 'MOV' (abstract base class)
@@ -436,6 +322,257 @@ public:
     ExecutionResult execute() override;
 };
 
+
+class Runner
+{
+private:
+    CPU* cpu;
+    ParsedCommand* programs;
+    int instructionCount;
+
+    bool isRegister(string text)
+    {
+        return text.length() == 2 && text[0] == 'R' && text[1] >= '0' && text[1] <= '7';
+    }
+
+    int getRegisterNumber(string text)
+    {
+        if (isRegister(text)) return text[1] - '0';
+        return -1;
+    }
+
+    bool isBracket(string text)
+    {
+        return text.length() >= 3 && text[0] == '[' && text[text.length() - 1] == ']';
+    }
+
+    string removeBracket(string text)
+    {
+        if (isBracket(text)) return text.substr(1, text.length() - 2);
+        return text;
+    }
+
+    int getNumber(string text)
+    {
+        stringstream ss(text);
+        int value = 0;
+        ss >> value;
+        return value;
+    }
+
+    Flags getFlagName(string text)
+    {
+        if (text == "OF") return Flags::OF;
+        if (text == "UF") return Flags::UF;
+        if (text == "CF") return Flags::CF;
+        return Flags::ZF;
+    }
+
+    Opcode getOpcodeName(string text)
+    {
+        if (text == "ADD") return Opcode::ADD;
+        if (text == "SUB") return Opcode::SUB;
+        if (text == "MUL") return Opcode::MUL;
+        if (text == "DIV") return Opcode::DIV;
+        if (text == "INC") return Opcode::INC;
+        if (text == "DEC") return Opcode::DEC;
+        if (text == "INPUT") return Opcode::INPUT;
+        if (text == "DISPLAY") return Opcode::DISPLAY;
+        if (text == "MOV") return Opcode::MOV;
+        if (text == "LOAD") return Opcode::LOAD;
+        if (text == "STORE") return Opcode::STORE;
+        if (text == "RESET") return Opcode::RESET;
+        if (text == "PUSH") return Opcode::PUSH;
+        if (text == "POP") return Opcode::POP;
+        if (text == "SHL") return Opcode::SHL;
+        if (text == "SHR") return Opcode::SHR;
+        if (text == "ROL") return Opcode::ROL;
+        return Opcode::ROR;
+    }
+
+public:
+    Runner()
+    {
+        cpu = NULL;
+        programs = NULL;
+        instructionCount = 0;
+    }
+
+    Runner(CPU* c)
+    {
+        cpu = c;
+        programs = NULL;
+        instructionCount = 0;
+    }
+
+    void setCPU(CPU* c)
+    {
+        cpu = c;
+    }
+
+    void cleanLine(char line[])
+    {
+        for (int i = 0; line[i] != '\0'; i++)
+        {
+            if (line[i] == ',' || line[i] == '\t')
+                line[i] = ' ';
+        }
+    }
+
+    void parseLine(char line[], ParsedCommand& inst)
+    {
+        cleanLine(line);
+
+        string opcode = "", op1 = "", op2 = "";
+        stringstream ss(line);
+
+        ss >> opcode >> op1 >> op2;
+        inst = ParsedCommand(opcode, op1, op2);
+    }
+
+    bool loadProgram(const char fileName[])
+    {
+        ifstream file(fileName);
+        if (!file)
+        {
+            cerr << "Cannot open asm file.\n";
+            return false;
+        }
+
+        programs = new ParsedCommand[100];
+        instructionCount = 0;
+        char line[100];
+
+        while (file.getline(line, 100))
+        {
+            ParsedCommand inst;
+            parseLine(line, inst);
+
+            if (inst.getOpcode() == "") continue;
+
+            programs[instructionCount] = inst;
+            instructionCount++;
+        }
+
+        file.close();
+        if (cpu != NULL) cpu->resetPC();
+        return true;
+    }
+
+    void displayInstruction(ParsedCommand inst)
+    {
+        cout << inst.getOpcode();
+        if (inst.getOperand1() != "") cout << " " << inst.getOperand1();
+        if (inst.getOperand2() != "") cout << ", " << inst.getOperand2();
+        cout << endl;
+    }
+
+    void run()
+    {
+        if (cpu == NULL) return;
+
+        for (int i = 0; i < instructionCount; i++)
+        {
+            ParsedCommand cmd = programs[i];
+            string op = cmd.getOpcode();
+            string a = cmd.getOperand1();
+            string b = cmd.getOperand2();
+
+            Instruction* instruction = NULL;
+            ExecutionResult result = ExecutionResult::Success;
+
+            if (op == "INPUT" || op == "DISPLAY")
+            {
+                instruction = new IOInstruction(*cpu, getOpcodeName(op), getRegisterNumber(a));
+            }
+            else if (op == "ADD" || op == "SUB" || op == "MUL" || op == "DIV")
+            {
+                bool isReg = isRegister(b);
+                int op2 = isReg ? getRegisterNumber(b) : getNumber(b);
+                instruction = new ArithmeticInstruction(*cpu, getOpcodeName(op), getRegisterNumber(a), op2, isReg);
+            }
+            else if (op == "INC" || op == "DEC")
+            {
+                instruction = new ArithmeticInstruction(*cpu, getOpcodeName(op), getRegisterNumber(a));
+            }
+            else if (op == "SHL" || op == "SHR" || op == "ROL" || op == "ROR")
+            {
+                instruction = new ShiftInstruction(*cpu, getOpcodeName(op), getRegisterNumber(a), getNumber(b));
+            }
+            else if (op == "MOV")
+            {
+                bool indirect = false;
+                bool isReg = false;
+                int op2 = 0;
+
+                if (isBracket(b))
+                {
+                    string inside = removeBracket(b);
+                    indirect = isRegister(inside);
+                    isReg = indirect;
+                    op2 = indirect ? getRegisterNumber(inside) : getNumber(inside);
+                }
+                else
+                {
+                    isReg = isRegister(b);
+                    op2 = isReg ? getRegisterNumber(b) : getNumber(b);
+                }
+
+                instruction = new DataMovementInstruction(*cpu, Opcode::MOV, getRegisterNumber(a), op2, isReg, indirect);
+            }
+            else if (op == "LOAD")
+            {
+                string src = removeBracket(b);
+                bool isReg = isRegister(src);
+                int op2 = isReg ? getRegisterNumber(src) : getNumber(src);
+                instruction = new DataMovementInstruction(*cpu, Opcode::LOAD, getRegisterNumber(a), op2, isReg);
+            }
+            else if (op == "STORE")
+            {
+                if (isRegister(a))
+                {
+                    string dest = removeBracket(b);
+                    bool isReg = isRegister(dest);
+                    int op2 = isReg ? getRegisterNumber(dest) : getNumber(dest);
+                    instruction = new DataMovementInstruction(*cpu, Opcode::STORE, getRegisterNumber(a), op2, isReg);
+                }
+                else
+                {
+                    int address = getNumber(removeBracket(a));
+                    int reg = getRegisterNumber(b);
+                    instruction = new DataMovementInstruction(*cpu, Opcode::STORE, reg, address, false);
+                }
+            }
+            else if (op == "PUSH" || op == "POP")
+            {
+                instruction = new StackInstruction(*cpu, getOpcodeName(op), getRegisterNumber(a));
+            }
+            else if (op == "RESET")
+            {
+                instruction = new RESETInstruction(*cpu, Opcode::RESET, getFlagName(a));
+            }
+            else
+            {
+                result = ExecutionResult::InvalidInstruction;
+            }
+
+            if (instruction != NULL)
+            {
+                result = instruction->execute();
+                delete instruction;
+            }
+
+            if (!handleExecResult(result, cpu->getPC())) return;
+            cpu->incrementPC();
+        }
+    }
+
+    int getInstructionCount()
+    {
+        return instructionCount;
+    }
+};
+
 int main()
 {
     // *****************************************************************
@@ -457,7 +594,11 @@ int main()
     Runner runner(&myCPU);
 
     // Load and run the assembly program
-    if (runner.loadProgram("program.asm"))
+    char fileName[100];
+    cout << "Enter asm file name: ";
+    cin >> fileName;
+
+    if (runner.loadProgram(fileName))
     {
         runner.run();
         myCPU.dump();
