@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iomanip> // for setw and fill
 #include <cstdio> // for sscanf
+#include <sstream>
 using namespace std;
 
 enum class Flags
@@ -189,6 +190,9 @@ public:
     int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
     int getPC() const { return pc; }
 
+    void incrementPC() { pc++; }
+    void resetPC() { pc = 0; }
+
     void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
     void updateFlags(int result, bool isArithmetic) { flags->updateFlags(result, isArithmetic); }
     void resetFlag(Flags flag) { flags->resetFlag(flag); }
@@ -230,12 +234,14 @@ public:
     Runner()
     {
         cpu = NULL;
+         programs = NULL;
         instructionCount = 0;
     }
 
     Runner(CPU* c)
     {
         cpu = c;
+        programs = NULL;
         instructionCount = 0;
     }
 
@@ -243,23 +249,87 @@ public:
         cpu = c;
     }
 
-    void cleanLine(char line[]) {
-        
+    void cleanLine(char line[])
+{
+    for (int i = 0; line[i] != '\0'; i++)
+    {
+        if (line[i] == ',' || line[i] == '\t')
+            line[i] = ' ';
     }
+}
 
-    void parseLine(char line[], ParsedCommand& inst) {
-        
-    }
+    void parseLine(char line[], ParsedCommand& inst)
+{
+    cleanLine(line);
+
+    string opcode = "", op1 = "", op2 = "";
+    stringstream ss(line);
+
+    ss >> opcode >> op1 >> op2;
+
+    inst = ParsedCommand(opcode, op1, op2);
+}
 
     bool loadProgram(const char fileName[]) {
+        ifstream file(fileName);
+        if (!file)
+        {
+            cerr << "Cannot open asm file.\n";
+            return false;
+        }
+
+         programs = new ParsedCommand[100];
+        instructionCount = 0;
+
+        char line[100];
+
+        while (file.getline(line, 100))
+        {
+            ParsedCommand inst("", "", "");
+            parseLine(line, inst);
+
+            if (inst.getOpcode() == "")
+                continue;
+
+            programs[instructionCount] = inst;
+            instructionCount++;
+        }
+
+        file.close();
+
+        if (cpu != NULL)
+            cpu->resetPC();
+
         return true;
+    
     }
 
-    void displayInstruction(ParsedCommand inst) {
-        
-    }
+    void displayInstruction(ParsedCommand inst)
+{
+    cout << inst.getOpcode();
 
-    void run() {
+    if (inst.getOperand1() != "")
+        cout << " " << inst.getOperand1();
+
+    if (inst.getOperand2() != "")
+        cout << ", " << inst.getOperand2();
+
+    cout << endl;
+}
+
+    void run() 
+    {
+        for (int i = 0; i < instructionCount; i++)
+        {
+            displayInstruction(programs[i]);
+
+            // Later: connect this instruction to the correct class
+            // Example: MOV -> DataMovementInstruction
+            // Example: ADD -> ArithmeticInstruction
+
+            if (cpu != NULL)
+                cpu->incrementPC();
+        }
         
     }
 
@@ -383,9 +453,16 @@ int main()
     // Send everything to the CPU for processing
     CPU myCPU(&myFlags, myRegisters);
 
-    // testing script
-    myCPU.dump();
-    
+      // Create the Runner
+    Runner runner(&myCPU);
+
+    // Load and run the assembly program
+    if (runner.loadProgram("program.asm"))
+    {
+        runner.run();
+        myCPU.dump();
+    }
+
     return 0;
 }
 
@@ -744,7 +821,7 @@ ExecutionResult StackInstruction::execute()
         case (Opcode::PUSH) :
             return push();
         case (Opcode::POP) :
-            return push(); 
+            return pop(); 
         default:
             return ExecutionResult::InvalidInstruction;
     }
