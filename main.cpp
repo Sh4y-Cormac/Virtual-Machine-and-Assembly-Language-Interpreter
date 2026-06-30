@@ -368,6 +368,9 @@ public:
 
 int main()
 {
+    // *****************************************************************
+    // NOTE FOR ALSAKKAF : FEEL FREE TO CHANGE THE MAIN TO FIT YOUR RUNNER
+    // *****************************************************************
     // initialize the 64 bit memory
     Memory myMemory;
 
