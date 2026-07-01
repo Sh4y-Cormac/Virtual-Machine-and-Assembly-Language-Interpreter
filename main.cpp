@@ -72,7 +72,7 @@ class GeneralRegister : public Register
         }
 
 };
-
+// Done by Kar Fung
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
 {
