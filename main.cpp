@@ -138,25 +138,28 @@ public:
             storage[i] = 0;
         }
     }
-    void write(size_t address, int8_t value)
+    ExecutionResult write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
         {
             storage[address] = value;
+            return ExecutionResult::MemoryFault;
         }
         else
         {
             cerr << "Memory Access Violation: Write at " << address << endl;
+            return ExecutionResult::MemoryFault;
         }
     }
-    int8_t read(size_t address) const
+    ExecutionResult read(size_t address, int &value) const
     {
         if (address < Memory_Size)
         {
-            return storage[address];
+            value = storage[address];
+            return ExecutionResult::MemoryFault;
         }
         cerr << "Memory Access Violation: Read at " << address << endl;
-        return 0;
+        return ExecutionResult::MemoryFault;
     }
 };
 
@@ -176,7 +179,7 @@ public:
     // cpu functions done by LIM
     CPU(FlagRegister* flag, GeneralRegister* reg) : flags(flag), registers(reg) {}
 
-    int8_t getMemory(int memAdr) const { return memory.read(memAdr); }
+    ExecutionResult getMemory(int memAdr, int &value) const { return memory.read(memAdr, value); }
     bool getFlag(Flags flag) const { return flags->getFlag(flag); }
     int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
     int getPC() const { return pc; }
@@ -184,14 +187,13 @@ public:
     void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
     void updateFlags(int result, bool isArithmetic) { flags->updateFlags(result, isArithmetic); }
     void resetFlag(Flags flag) { flags->resetFlag(flag); }
-    void setMemory(int memAdr, int8_t value) { memory.write(memAdr, value); }
+    ExecutionResult setMemory(int memAdr, int8_t value) { return memory.write(memAdr, value); }
 
     void pushStack(int8_t value) { stackStorage[si++] = value; }
     int8_t popStack() { return stackStorage[--si]; }
     int getSI() const { return si; }
 
     bool isValidReg(int n) const { return (n >= 0 && n <= 7); };
-    bool isValidMem(int n) const { return (n >= 0 && n <= 63); };
 
     void dump() const;
 };
@@ -398,7 +400,6 @@ bool handleExecResult(ExecutionResult execResult, int pc)
             cerr << "Error: Invalid Flag Register in Instruction " << pc;
             break;  
         case (ExecutionResult::MemoryFault) :
-            cerr << "Error: Invalid Memory Address in Instruction " << pc;
             break;  
         case (ExecutionResult::DivisionByZero) :
             cerr << "Error: Division by Zero in Instruction " << pc;
@@ -408,7 +409,9 @@ bool handleExecResult(ExecutionResult execResult, int pc)
             break;  
         case (ExecutionResult::PopFromEmptyStack) :
             cerr << "Error: Popping from empty Stack in Instruction " << pc;
-            break;      
+            break;  
+        default:
+            break;    
     }
     return false;
 }
@@ -433,7 +436,9 @@ void CPU::dump() const
     cout << "\n#Memory#\n#";
     for (int i = 0; i < 64; i++) 
     {
-        cout << setw(4) << setfill('0') << static_cast<int>(getMemory(i)) << "#";
+        int value;
+        ExecutionResult e = getMemory(i, value);
+        cout << setw(4) << setfill('0') << value << "#";
         if (!((i+1)%8)) cout << "\n#";
     }
 
@@ -691,37 +696,34 @@ ExecutionResult DataMovementInstruction::execute()
 ExecutionResult DataMovementInstruction::mov()
 {
     int value;
+    ExecutionResult execResult;
 
     if (indirect) 
     {
         int memAdr = cpu.getRegister(operand2);
-        if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
-        value = cpu.getMemory(memAdr);   
+        execResult = cpu.getMemory(memAdr, value);   
     }
     else value = isReg? cpu.getRegister(operand2) : operand2;
 
     updateReg(operand1, value);
-    return ExecutionResult::Success;
+    return execResult;
 }
 
 ExecutionResult DataMovementInstruction::load()
 {
+    int value;
     int memAdr = isReg? cpu.getRegister(operand2) : operand2;
-    if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
-
-    int8_t value = cpu.getMemory(memAdr);
+    ExecutionResult execResult = cpu.getMemory(memAdr, value);
     updateReg(operand1, value);
-    return ExecutionResult::Success;
+    return execResult;
 }
 
 ExecutionResult DataMovementInstruction::store()
 {
     int memAdr = isReg? cpu.getRegister(operand2) : operand2;
-    if (!cpu.isValidMem(memAdr)) return ExecutionResult::MemoryFault;   // return error if invalid mem adr
-
     int8_t value = cpu.getRegister(operand1);
-    cpu.setMemory(memAdr, value);
-    return ExecutionResult::Success;
+    ExecutionResult execResult = cpu.setMemory(memAdr, value);
+    return execResult;
 }
 
 StackInstruction::StackInstruction(CPU& c, Opcode opc, int opr1) 
