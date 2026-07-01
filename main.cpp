@@ -124,7 +124,7 @@ public:
         // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
         if (isArithmetic) 
         {
-            cf = (result >= 256); // 0-255 (uint8_t)
+            cf = (result >= 256); 
         }
     }
 };
@@ -177,7 +177,6 @@ private:
     GeneralRegister* registers;
     int pc=0;
 
-    // Your Assigned Additions to align with requirements:
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
     int si=0;               // Stack Index (SI) register starting at 0
 
