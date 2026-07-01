@@ -8,6 +8,9 @@
 #include <sstream>
 using namespace std;
 
+// ==============================================
+// MADE BY ZHEN LONG
+// ==============================================
 enum class Flags
 {
     OF, UF, CF, ZF, COUNT
@@ -37,7 +40,10 @@ enum class ExecutionResult
 
 bool handleExecResult(ExecutionResult, int);
 
-// MADE BY UMAR
+// ==============================================
+// MADE BY UMAR ZAID
+// ==============================================
+
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -59,7 +65,7 @@ public:
     }
 };
 
-// MADE BY UMAR
+
 // implementation of the register movement  (inheritance from Register)
 class GeneralRegister : public Register
 {
@@ -72,7 +78,10 @@ class GeneralRegister : public Register
         }
 
 };
-// Done by Kar Fung
+
+// ==============================================
+// MADE BY KAR FUNG
+// ==============================================
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
 {
@@ -129,7 +138,10 @@ public:
     }
 };
 
-// MADE BY UMAR
+// ==============================================
+// MADE BY UMAR ZAID
+// ==============================================
+
 // Handles storage and addressing logic over a vector of bytes
 class Memory
 {
@@ -146,6 +158,7 @@ public:
             storage[i] = 0;
         }
     }
+        // changes the value inside the address.
     void write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
@@ -157,6 +170,7 @@ public:
             cerr << "Memory Access Violation: Write at " << address << endl;
         }
     }
+        // outputs the value inside the address
     int8_t read(size_t address) const
     {
         if (address < Memory_Size)
@@ -181,7 +195,9 @@ private:
     int si=0;               // Stack Index (SI) register starting at 0
 
 public:
-    // cpu functions done by LIM
+    // ==============================================
+    // MADE BY ZHEN LONG
+    // ==============================================
     CPU(FlagRegister* flag, GeneralRegister* reg) : flags(flag), registers(reg) {}
 
     int8_t getMemory(int memAdr) const { return memory.read(memAdr); }
@@ -207,6 +223,9 @@ public:
     void dump() const;
 };
 
+// ==============================================
+// MADE BY AL-SAKKAF
+// ==============================================
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class ParsedCommand
 {
@@ -223,6 +242,9 @@ public:
     string getOperand2() const { return operand2; }
 };
 
+// ==============================================
+// MADE BY ZHEN LONG
+// ==============================================
 // all assembly commands logic go here e.g 'ADD' or 'MOV' (abstract base class)
 class Instruction
 {
@@ -321,7 +343,9 @@ public:
     ExecutionResult execute() override;
 };
 
-
+// ==============================================
+// MADE BY ALSAKKAF
+// ==============================================
 class Runner
 {
 private:
@@ -572,11 +596,12 @@ public:
     }
 };
 
+// ==============================================
+// MADE BY UMAR ZAID
+// ==============================================
+
 int main()
 {
-    // *****************************************************************
-    // NOTE FOR ALSAKKAF : FEEL FREE TO CHANGE THE MAIN TO FIT YOUR RUNNER
-    // *****************************************************************
     // initialize the 64 bit memory
     Memory myMemory;
 
@@ -606,6 +631,9 @@ int main()
     return 0;
 }
 
+// ==============================================
+// MADE BY AL SAKKAF
+// ==============================================
 // helper function to handle execution result and errors
 bool handleExecResult(ExecutionResult execResult, int pc)
 {
@@ -638,6 +666,9 @@ bool handleExecResult(ExecutionResult execResult, int pc)
     return false;
 }
 
+// ==============================================
+// MADE BY ZHEN LONG
+// ==============================================
 // function defintion for cpu.dump
 void CPU::dump() const
 {
