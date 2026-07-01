@@ -111,19 +111,12 @@ public:
     // Core validation method to check arithmetic bounds
     void updateFlags(int result, bool isArithmetic) 
     {
-        // 1. Zero Flag (ZF): Set when the result of an operation is zero
         zf = (result == 0);
-
-        // 2. Overflow Flag (OF): Result greater than 127
         of = (result > 127);
-
-        // 3. Underflow Flag (UF): Result smaller than -128
         uf = (result < -128);
-
-        // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
         if (isArithmetic) 
         {
-            cf = (result >= 256); // 0-255 (uint8_t)
+            cf = (result >= 256);
         }
     }
 };
@@ -176,7 +169,6 @@ private:
     GeneralRegister* registers;
     int pc=0;
 
-    // Your Assigned Additions to align with requirements:
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
     int si=0;               // Stack Index (SI) register starting at 0
 
