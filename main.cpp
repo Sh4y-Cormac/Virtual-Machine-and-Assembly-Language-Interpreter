@@ -9,14 +9,17 @@
 #include <sstream>
 using namespace std;
 
-// MADE BY ZHEN LONG
+/*
+==========================================================
+MADE BY ZHEN LONG
+==========================================================
+*/
 // Type-safe constants for identifying flags in flag register
 enum class Flags
 {
     OF, UF, CF, ZF, COUNT
 };
 
-// MADE BY ZHEN LONG
 // Type-safe constants for identifying opcode in instructions
 enum class Opcode
 { 
@@ -29,7 +32,6 @@ enum class Opcode
     COUNT
 };
 
-// MADE BY ZHEN LONG
 // Type-safe constants for identifying results and errors after executig instructions
 enum class ExecutionResult
 {
@@ -43,7 +45,6 @@ enum class ExecutionResult
     PopFromEmptyStack   // Popping from empty stack (0)
 };
 
-// MADE BY ZHEN LONG
 // custom stack
 class MyStack
 {
@@ -67,7 +68,6 @@ public:
     int getSI() const { return si; }
 };
 
-// MADE BY ZHEN LONG
 // custom vector template
 template<class T>
 class MyVector
@@ -116,11 +116,14 @@ public:
     int getSize() { return size; }
 };
 
-// MADE BY ZHEN LONG
 // helper function to handle execution result and displaying errors
 bool handleExecResult(ExecutionResult, int);
 
-// MADE BY UMAR
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -128,22 +131,24 @@ protected:
     int8_t value; // value of the 8-bit itself
 
 public:
+    // constructor for register
     Register() : value()
     {}
 
+    // sets the value of the register based on the parameter (setter)
     void setValue(int8_t val)
     {
         value = val;
     }
 
+    // returns the value that is currently inside the register (getter) 
     int8_t getValue() const
     {
         return value;
     }
 };
 
-// MADE BY UMAR
-// implementation of the register movement  (inheritance from Register)
+// Contains R0-R7 registers that is initialized by the CPU.  (inheritance from Register)
 class GeneralRegister : public Register
 {
     public:
@@ -155,7 +160,12 @@ class GeneralRegister : public Register
         }
 
 };
-// Done by Kar Fung
+
+/*
+==========================================================
+MADE BY KAR FUNG
+==========================================================
+*/
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
 {
@@ -166,7 +176,7 @@ private:
     bool of; // Overflow Flag
 
 public:
-    FlagRegister() 
+    FlagRegister() // this constructor function is used reset state by overwriting them 
     {
         cf = false;
         zf = false;
@@ -192,21 +202,31 @@ public:
         else if (flagName == Flags::OF) of = false;
     }
 
-    // Core validation method to check arithmetic bounds
+    // Core validation method to check arithmetic bounds, it updates the flags to true or false based on the condition
     void updateFlags(int result, bool isArithmetic) 
     {
+        // 1. Zero Flag (ZF): Set when the result of an operation is zero
         zf = (result == 0);
+
+        // 2. Overflow Flag (OF): Result greater than 127
         of = (result > 127);
+
+        // 3. Underflow Flag (UF): Result smaller than -128
         uf = (result < -128);
+
+        // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
         if (isArithmetic) 
         {
-            cf = (result >= 256); 
-            cf = (result >= 256);
+            cf = (result >= 256); // 0-255 (uint8_t)
         }
     }
 };
 
-// MADE BY UMAR
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
 // Handles storage and addressing logic over a vector of bytes
 class Memory
 {
@@ -223,6 +243,8 @@ public:
             storage[i] = 0;
         }
     }
+
+    // updates the chosen memmory index with the value that the user specifies (setter)
     ExecutionResult write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
@@ -236,6 +258,8 @@ public:
             return ExecutionResult::MemoryFault;
         }
     }
+
+    // returns the value stored in the memory based on the index chosen. (getter)
     ExecutionResult read(size_t address, int &value) const
     {
         if (address < Memory_Size)
@@ -248,10 +272,16 @@ public:
     }
 };
 
+/*
+==========================================================
+MADE BY UMAR, ZHEN LONG
+==========================================================
+*/
 // Contains registers, memory, PC, executes instructions 
 class CPU
 {
 private:
+    // private members to be used by the CPU for arithmetic and movement processes.
     Memory memory;          
     FlagRegister* flags;    
     GeneralRegister* registers;
@@ -289,6 +319,11 @@ public:
     void dump() const;
 };
 
+/*
+==========================================================
+MADE BY AL-SAKKAF, ZHEN LONG
+==========================================================
+*/
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class ParsedCommand
 {
@@ -305,22 +340,24 @@ public:
     string getOperand2() const { return operand2; }
 };
 
+// Runner loads the assembly program, parses each instruction,
+// creates the correct instruction object and executes it.
 class Runner
 {
 private:
-    CPU* cpu;
-    MyVector<ParsedCommand> programs;
-    int instructionCount;
+    CPU* cpu; // Pointer to the CPU
+    MyVector<ParsedCommand> programs;   // Stores parsed instructions
+    int instructionCount; // Total loaded instructions
     MyVector<Instruction> instructions;
 
     // Methods to format user input into information
-    bool isRegister(string text);
-    int getRegisterNumber(string text);
-    bool isBracket(string text);
-    string removeBracket(string text);
-    int getNumber(string text);
-    Flags getFlagName(string text);
-    Opcode getOpcodeName(string text);
+    bool isRegister(string text);   // Checks if an operand is a register (R0-R7)
+    int getRegisterNumber(string text); // Converts a register string into its register number
+    bool isBracket(string text); // Checks for indirect addressing (e.g. [R1])
+    string removeBracket(string text); // Removes square brackets from an operand
+    int getNumber(string text); // Converts a numeric string into an integer
+    Flags getFlagName(string text); // Converts a flag string into a Flags enum
+    Opcode getOpcodeName(string text); // Converts an opcode string into an Opcode enum
 
     // Methods to load instructions into vector
     Instruction* loadArithmeticInst(Opcode opc, string opr1, string opr2);
@@ -334,23 +371,29 @@ private:
     Instruction* loadResetInst(Opcode opc, string opr1);
 
 public:
-    Runner(CPU* c); // constructor to initialize cpu
+    Runner(CPU* c);  // Constructor that links the Runner to the CPU
 
     // methods to read line by line from .asm file and extract word by words
-    void cleanLine(char line[]);
-    void parseLine(char line[], ParsedCommand& inst);
-    bool loadProgram(const char fileName[]);
+    void cleanLine(char line[]); // Replaces commas and tabs with spaces before parsing
+    int countWords(char line[]); // Counts how many words/tokens are found in one assembly line
+    void parseLine(char line[], ParsedCommand& inst); // Splits one assembly instruction into opcode and operands
+    bool loadProgram(const char fileName[]); // Loads all assembly instructions from the specified file
 
     // decode program into executable instruction
-    ExecutionResult decodeProgram();
+    void decodeProgram();
 
     // load instruction into specific dervied instructions class
     void loadInstruction(Opcode opc, string opr1, string opr2);
 
+    // Executes every loaded instruction
     void run();
 };
 
-// MADE BY ZHEN LONG
+/*
+==========================================================
+MADE BY ZHEN LONG
+==========================================================
+*/
 // all assembly commands logic go here e.g 'ADD' or 'MOV' (abstract base class)
 class Instruction
 {
@@ -365,8 +408,7 @@ public:
     virtual ExecutionResult execute() = 0; // pure virtual function: forces derived classes to implement. (polymorphism)
 };
 
-// MADE BY ZHEN LONG
-// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (Inheritance and polymorphism of Instuction)
+// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (Inheritance and polymorphism of Instruction)
 class ArithmeticInstruction : public Instruction
 {   
 private:
@@ -385,7 +427,6 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// MADE BY ZHEN LONG
 // handles inputOutput command for assembly instructions (Inheritance and polymorphism of Instuction)
 class IOInstruction : public Instruction
 {
@@ -401,7 +442,6 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// MADE BY ZHEN LONG
 // handles bitwise operations (Inheritance and polymorphism of Instuction)
 class ShiftInstruction : public Instruction
 {
@@ -426,7 +466,6 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// MADE BY ZHEN LONG
 // handles movement of data between registers and memory (Inheritance and polymorphism of Instuction)
 class DataMovementInstruction : public Instruction
 {
@@ -448,7 +487,7 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// MADE BY ZHEN LONG
+
 // handles stack operation (Inheritance and polymorphism of Instuction)
 class StackInstruction : public Instruction
 {
@@ -464,7 +503,7 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// MADE BY ZHEN LONG
+
 // handles flag reset operation (Inheritance and polymorphism of Instuction)
 class RESETInstruction : public Instruction
 {
@@ -475,14 +514,13 @@ public:
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
 int main()
 {
-    // *****************************************************************
-    // NOTE FOR ALSAKKAF : FEEL FREE TO CHANGE THE MAIN TO FIT YOUR RUNNER
-    // *****************************************************************
-    // initialize the 64 bit memory
-    Memory myMemory;
-
     //initialize the flag register
     FlagRegister myFlags;
 
@@ -502,6 +540,7 @@ int main()
 
     if (runner.loadProgram(fileName))
     {
+        runner.decodeProgram();
         runner.run();
         myCPU.dump();
     }
@@ -509,40 +548,12 @@ int main()
     return 0;
 }
 
-// function defintion of helper function
-bool handleExecResult(ExecutionResult execResult, int pc)
-{
-    switch (execResult)
-    {
-        case (ExecutionResult::Success) :
-            return true;
-        case (ExecutionResult::InvalidInstruction) :
-            cerr << "Error: Invalid Instruction Opcode in Instruction " << pc;
-            break;
-        case (ExecutionResult::InvalidRegister) :
-            cerr << "Error: Invalid Register in Instruction " << pc;
-            break;
-        case (ExecutionResult::InvalidFlag) :
-            cerr << "Error: Invalid Flag Register in Instruction " << pc;
-            break;  
-        case (ExecutionResult::MemoryFault) :
-            break;  
-        case (ExecutionResult::DivisionByZero) :
-            cerr << "Error: Division by Zero in Instruction " << pc;
-            break;  
-        case (ExecutionResult::PushToFullStack) :
-            cerr << "Error: Pushing to full Stack in Instruction " << pc;
-            break;  
-        case (ExecutionResult::PopFromEmptyStack) :
-            cerr << "Error: Popping from empty Stack in Instruction " << pc;
-            break;  
-        default:
-            break;    
-    }
-    return false;
-}
-
-// function definition pf Runner methods
+/*
+==========================================================
+MADE BY AL-SAKKAF
+==========================================================
+*/
+// function definition of Runner methods
 bool Runner::isRegister(string text)
 { return text.length() == 2 && text[0] == 'R' && text[1] >= '0' && text[1] <= '7'; }
 
@@ -697,6 +708,18 @@ void Runner::cleanLine(char line[])
     }
 }
 
+int Runner::countWords(char line[])
+{
+    string word;
+    stringstream ss(line);
+    int count = 0;
+
+    while (ss >> word)
+        count++;
+
+    return count;
+}
+
 void Runner::parseLine(char line[], ParsedCommand& inst)
 {
     cleanLine(line);
@@ -720,6 +743,18 @@ bool Runner::loadProgram(const char fileName[])
 
     while (file.getline(line, 100))
     {
+        cleanLine(line);
+
+        if (countWords(line) == 0)
+            continue;
+
+        if (countWords(line) > 3)
+        {
+            cerr << "Error: More than one instruction found on one line.\n";
+            file.close();
+            return false;
+        }
+
         ParsedCommand* inst = new ParsedCommand("", "", "");
         parseLine(line, *inst);
         if (inst->getOpcode() == "") 
@@ -735,18 +770,17 @@ bool Runner::loadProgram(const char fileName[])
     return true;
 }
 
-ExecutionResult Runner::decodeProgram()
+void Runner::decodeProgram()
 {
     for (int i=0; i < Runner::instructionCount; i++)
     {
         Opcode opc = getOpcodeName(programs[i]->getOpcode());
-        if (opc == Opcode::COUNT) return ExecutionResult::InvalidInstruction;
+        if (opc == Opcode::COUNT) return;
 
         string opr1 = programs[i]->getOperand1();
         string opr2 = programs[i]->getOperand2();
         loadInstruction(opc, opr1, opr2);
     }
-    return ExecutionResult::Success;
 }
 
 void Runner::loadInstruction(Opcode opc, string opr1, string opr2)
@@ -781,10 +815,48 @@ void Runner::run()
     while(cpu->getPC() < instructionCount)
     {
         int pc = cpu->getPC();
-        ExecutionResult execResult = instructions[pc]->execute();
+        ExecutionResult execResult = instructions[pc]->execute();   // (polymorphism) calling execute() by using base ptr
         cpu->incrementPC();
         if (!handleExecResult(execResult, pc)) { return; }
     }
+}
+
+/*
+==========================================================
+MADE BY ZHEN LONG
+==========================================================
+*/
+// function defintion of helper function
+bool handleExecResult(ExecutionResult execResult, int pc)
+{
+    switch (execResult)
+    {
+        case (ExecutionResult::Success) :
+            return true;
+        case (ExecutionResult::InvalidInstruction) :
+            cerr << "Error: Invalid Instruction Opcode in Instruction " << pc;
+            break;
+        case (ExecutionResult::InvalidRegister) :
+            cerr << "Error: Invalid Register in Instruction " << pc;
+            break;
+        case (ExecutionResult::InvalidFlag) :
+            cerr << "Error: Invalid Flag Register in Instruction " << pc;
+            break;  
+        case (ExecutionResult::MemoryFault) :
+            break;  
+        case (ExecutionResult::DivisionByZero) :
+            cerr << "Error: Division by Zero in Instruction " << pc;
+            break;  
+        case (ExecutionResult::PushToFullStack) :
+            cerr << "Error: Pushing to full Stack in Instruction " << pc;
+            break;  
+        case (ExecutionResult::PopFromEmptyStack) :
+            cerr << "Error: Popping from empty Stack in Instruction " << pc;
+            break;  
+        default:
+            break;    
+    }
+    return false;
 }
 
 // function defintion for cpu.dump
