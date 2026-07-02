@@ -41,6 +41,78 @@ enum class ExecutionResult
 };
 
 // MADE BY ZHEN LONG
+// custom stack
+class MyStack
+{
+private:
+    int8_t* data;   // The byte system stack managed internally
+    int si;         // Stack Index (SI) register starting at 0
+    int capacity;   // capacity is 8 byte
+
+public:
+    // constructor to initialise 8byte of stack storage
+    MyStack(int cap=8) 
+    : capacity(cap), si(0) 
+    { data = new int8_t[cap](); }  // initialise stack of size 8, all data to zero
+
+    // custom destructor to delete dynamically allocated memory space
+    ~MyStack() { delete[] data; }
+
+    // methods to perform operation on internal stack (Encapsulation) 
+    void push(int8_t value) { data[si++] = value; }
+    int8_t pop() { return data[--si]; }
+    int getSI() const { return si; }
+};
+
+// MADE BY ZHEN LONG
+// custom stack
+class MyVector
+{
+private:
+    Instruction** data; // pointer to an array of pointer of instruction
+    int capacity;
+    int size;
+
+    // increase capacity (dynamic array/vector)
+    void resize() 
+    {
+        capacity *= 2;
+        Instruction** newData = new Instruction*[capacity];
+        for (int i = 0; i < size; i++) 
+        { newData[i] = data[i]; }
+        delete[] data;
+        data = newData;
+    }
+
+public:
+    // constructor to initialise vector 
+    MyVector(int cap=10) 
+    : capacity(cap), size(0)
+    { data = new Instruction*[capacity](); } // nullptr
+
+    // destructor to delete each instruction and the class memory space
+    ~MyVector() 
+    {
+        for (int i = 0; i < size; i++) { delete data[i]; }
+        delete[] data;
+    }
+
+    // add new instruction
+    void pushBack(Instruction* inst) 
+    {
+        if (size == capacity) 
+        { resize(); }
+        data[size++] = inst;
+    }
+
+    // overload [] operator to return data at index
+    Instruction* operator[](int index) { return data[index]; }
+
+    // return size of vector (instruction count)
+    int getSize() { return size; }
+};
+
+// MADE BY ZHEN LONG
 // helper function to handle execution result and displaying errors
 bool handleExecResult(ExecutionResult, int);
 
@@ -178,10 +250,8 @@ private:
     Memory memory;          
     FlagRegister* flags;    
     GeneralRegister* registers;
+    MyStack stack;  // cpu internal stack (implementation of stack)
     int pc=0;
-
-    int8_t stackStorage[8]; // The 8-byte system stack managed internally
-    int si=0;               // Stack Index (SI) register starting at 0
 
 public:
     // CPU functions done by ZHEN LONG
@@ -194,7 +264,7 @@ public:
     bool getFlag(Flags flag) const { return flags->getFlag(flag); }
     int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
     int getPC() const { return pc; }
-    int getSI() const { return si; }
+    int getSI() const { return stack.getSI(); }
 
     // setters to change PRIVATE members data(Encapsulation) 
     void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
@@ -203,8 +273,8 @@ public:
     ExecutionResult setMemory(int memAdr, int8_t value) { return memory.write(memAdr, value); }
 
     // methods to perform operation on internal stack (Encapsulation) 
-    void pushStack(int8_t value) { stackStorage[si++] = value; }
-    int8_t popStack() { return stackStorage[--si]; }
+    void pushStack(int8_t value) { stack.push(value); }
+    int8_t popStack() { return stack.pop(); }
 
     // validate register number (0 to 7) 
     bool isValidReg(int n) const { return (n >= 0 && n <= 7); };
