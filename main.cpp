@@ -625,6 +625,7 @@ int main()
     cout << "Enter asm file name: ";
     cin >> fileName;
 
+    // checks if the file is actually a .asm, and proceeds to do the computation and processing.
     if (runner.loadProgram(fileName))
     {
         runner.run();
