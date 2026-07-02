@@ -51,14 +51,17 @@ protected:
     int8_t value; // value of the 8-bit itself
 
 public:
+    // constructor
     Register() : value()
     {}
 
+    // sets the value of the current register into the parameter that is given 
     void setValue(int8_t val)
     {
         value = val;
     }
 
+    // outputs the current value that is stored inside the register
     int8_t getValue() const
     {
         return value;
@@ -66,7 +69,7 @@ public:
 };
 
 
-// implementation of the register movement  (inheritance from Register)
+// Basically a container for the R0-R7 registers, we initialized all 8 registers using this.   (inheritance from Register)
 class GeneralRegister : public Register
 {
     public:
