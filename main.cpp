@@ -3,15 +3,19 @@
 #include <cstdint>
 #include <fstream>
 #include <cstring>
-#include <iomanip> // for setw and fill
+#include <iomanip> // for setw and fill to format output
 #include <cstdio> // for sscanf
 using namespace std;
 
+// MADE BY ZHEN LONG
+// Type-safe constants for identifying flags in flag register
 enum class Flags
 {
     OF, UF, CF, ZF, COUNT
 };
 
+// MADE BY ZHEN LONG
+// Type-safe constants for identifying opcode in instructions
 enum class Opcode
 { 
     ADD, SUB, MUL, DIV, INC, DEC, // Arithmetic
@@ -22,6 +26,8 @@ enum class Opcode
     SHL, SHR, ROL, ROR // Shift
 };
 
+// MADE BY ZHEN LONG
+// Type-safe constants for identifying results and errors after executig instructions
 enum class ExecutionResult
 {
     Success,            // No error
@@ -34,6 +40,8 @@ enum class ExecutionResult
     PopFromEmptyStack   // Popping from empty stack (0)
 };
 
+// MADE BY ZHEN LONG
+// helper function to handle execution result and displaying errors
 bool handleExecResult(ExecutionResult, int);
 
 // MADE BY UMAR
@@ -176,25 +184,32 @@ private:
     int si=0;               // Stack Index (SI) register starting at 0
 
 public:
-    // cpu functions done by LIM
+    // CPU functions done by ZHEN LONG
+    // constuctor to initialise flag and registers inside CPU
+    // CPU owns (composition) Memory, but (aggregation) on other component
     CPU(FlagRegister* flag, GeneralRegister* reg) : flags(flag), registers(reg) {}
 
+    // getters to read PRIVATE members data (Encapsulation) 
     ExecutionResult getMemory(int memAdr, int &value) const { return memory.read(memAdr, value); }
     bool getFlag(Flags flag) const { return flags->getFlag(flag); }
     int8_t getRegister(int regNum) const { return registers[regNum].getValue(); }
     int getPC() const { return pc; }
+    int getSI() const { return si; }
 
+    // setters to change PRIVATE members data(Encapsulation) 
     void setRegister(int regNum, int8_t value) { registers[regNum].setValue(value); }
     void updateFlags(int result, bool isArithmetic) { flags->updateFlags(result, isArithmetic); }
     void resetFlag(Flags flag) { flags->resetFlag(flag); }
     ExecutionResult setMemory(int memAdr, int8_t value) { return memory.write(memAdr, value); }
 
+    // methods to perform operation on internal stack (Encapsulation) 
     void pushStack(int8_t value) { stackStorage[si++] = value; }
     int8_t popStack() { return stackStorage[--si]; }
-    int getSI() const { return si; }
 
+    // validate register number (0 to 7) 
     bool isValidReg(int n) const { return (n >= 0 && n <= 7); };
 
+    // display content of CPU after execution
     void dump() const;
 };
 
@@ -262,102 +277,129 @@ public:
     }
 };
 
+// MADE BY ZHEN LONG
 // all assembly commands logic go here e.g 'ADD' or 'MOV' (abstract base class)
 class Instruction
 {
 protected:
     CPU& cpu;
     Opcode opcode;
-    void updateReg(int opr1, int result, bool isArithmetic=false);
-    void updateFlags(int result, bool isArithmetic);
+    void updateReg(int opr1, int result, bool isArithmetic=false);  // call setter to update register value after execute
+    void updateFlags(int result, bool isArithmetic);    // call setter to update flags value after execute if content destination register is changed
 public:
-    Instruction(CPU& c, Opcode opc);
-    virtual ~Instruction() = default; // destructor
-    virtual ExecutionResult execute() = 0; // pure virtual: causes classes to implement.
+    Instruction(CPU& c, Opcode opc); // constructor to initialize cpu by reference and opcode
+    virtual ~Instruction() = default; // calls derived classes destuctor, then uses default base class destructor
+    virtual ExecutionResult execute() = 0; // pure virtual function: forces derived classes to implement. (polymorphism)
 };
 
-// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (Inheritance and polymorphism of Instuction)
 class ArithmeticInstruction : public Instruction
 {   
 private:
     int operand1;
     int operand2;
     bool isReg;
+    
+    // methods to perform arithmetic operation on two values
     ExecutionResult add(int& result, int val1, int val2);
     ExecutionResult sub(int& result, int val1, int val2);
     ExecutionResult mul(int& result, int val1, int val2);
     ExecutionResult div(int& result, int val1, int val2);
+
 public:
-    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2=1, bool isR=false);
-    ExecutionResult execute() override;
+    ArithmeticInstruction(CPU& c, Opcode opc, int opr1, int opr2=1, bool isR=false); // constuctor to initialise data and call base class constructor
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// handles inputOutput command for assembly instructions (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// handles inputOutput command for assembly instructions (Inheritance and polymorphism of Instuction)
 class IOInstruction : public Instruction
 {
 private:
     int operand1;
+
+    // methods to perform input and output operation
     void input();
     void display() const;
+
 public:
-    IOInstruction(CPU& c, Opcode opc, int opr1);
-    ExecutionResult execute() override;
+    IOInstruction(CPU& c, Opcode opc, int opr1); // constuctor to initialise data and call base class constructor
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// handles bitwise operations (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// handles bitwise operations (Inheritance and polymorphism of Instuction)
 class ShiftInstruction : public Instruction
 {
 private:
     int operand1;
     int count;
+
+    // methods to perform binary and decimal conversion
     void decimalToBinary(int dec, bool* bits);
     int binaryToDecimal(const bool* bits);
-    int getIndex(int idx);  // fucntion to ensure array index between 0-7
+
+    int getIndex(int idx);  // methods to ensure array index between 0-7 (8-bits)
+
+    // methods to perform shift and rotate operation on 8 bits binary
     void ROL(bool* const binaryBits, bool* resultBits);
     void ROR(bool* const binaryBits, bool* resultBits);
     void SHL(bool* const binaryBits, bool* resultBits);
     void SHR(bool* const binaryBits, bool* resultBits);
+
 public:
-    ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2);
-    ExecutionResult execute() override;
+    ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2); // constuctor to initialise data and call base class constructor
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// handles movement of data between registers and memory (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// handles movement of data between registers and memory (Inheritance and polymorphism of Instuction)
 class DataMovementInstruction : public Instruction
 {
 private:
     int operand1;
-    int operand2;    // int operand2 to detect OUZ flag from user input for MOV
+    int operand2;    // int datatype to detect OUZ flag from user input for MOV
     bool isReg;
     bool indirect;
-public:
-    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind=false);
-    ExecutionResult execute() override;
+
+    // methods to perform data movement operation between registers to registers or to memory
     ExecutionResult mov();
     ExecutionResult load();
     ExecutionResult store();
+
+public:
+    // constuctor to initialise data and call base class constructor
+    DataMovementInstruction(CPU& c, Opcode opc, int opr1, int opr2, bool isR, bool ind=false);
+
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// handles stack operation (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// handles stack operation (Inheritance and polymorphism of Instuction)
 class StackInstruction : public Instruction
 {
 private:
     int operand1;
+
+    // methods to perform push and pop operation on CPU internal stack
     ExecutionResult push();
     ExecutionResult pop();
+
 public:
-    StackInstruction(CPU& c, Opcode opc, int opr1);
-    ExecutionResult execute() override;
+    StackInstruction(CPU& c, Opcode opc, int opr1); // constuctor to initialise data and call base class constructor
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
-// handles flag reset operation (polymorphism of Instuction)
+// MADE BY ZHEN LONG
+// handles flag reset operation (Inheritance and polymorphism of Instuction)
 class RESETInstruction : public Instruction
 {
 private:
     Flags flag;
 public: 
-    RESETInstruction(CPU& c, Opcode opc, Flags opr1);
-    ExecutionResult execute() override;
+    RESETInstruction(CPU& c, Opcode opc, Flags opr1); // constuctor to initialise data and call base class construct
+    ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
 int main()
@@ -383,7 +425,6 @@ int main()
     return 0;
 }
 
-// helper function to handle execution result and errors
 bool handleExecResult(ExecutionResult execResult, int pc)
 {
     switch (execResult)
@@ -420,19 +461,14 @@ bool handleExecResult(ExecutionResult execResult, int pc)
 void CPU::dump() const
 {
     string flagName[] = {"OF", "UF", "CF", "ZF"};
-
     cout << "#Begin#\n";
-
     cout << "#Registers#";
     for (int i = 0; i < 8; i++) 
-        cout << setw(4) << setfill('0') << static_cast<int>(getRegister(i)) << "#";
-
+        { cout << setw(4) << setfill('0') << static_cast<int>(getRegister(i)) << "#"; }
     cout << "\n#Flags#";
     for (int i = 0; i < static_cast<int>(Flags::COUNT); i++) 
-        cout << flagName[i] << "#" << static_cast<int>(getFlag(static_cast<Flags>(i))) << "#";
-
+        { cout << flagName[i] << "#" << static_cast<int>(getFlag(static_cast<Flags>(i))) << "#"; }
     cout << "\n#PC#" << setw(4) << setfill('0') << getPC() << "#";
-
     cout << "\n#Memory#\n#";
     for (int i = 0; i < 64; i++) 
     {
@@ -441,7 +477,6 @@ void CPU::dump() const
         cout << setw(4) << setfill('0') << value << "#";
         if (!((i+1)%8)) cout << "\n#";
     }
-
     cout << "End#\n";
 }
 
@@ -473,12 +508,10 @@ ExecutionResult ArithmeticInstruction::execute()
 {
     if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
     if (isReg && !cpu.isValidReg(operand2)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-
     int result;
     ExecutionResult execResult;
     int8_t value1 = cpu.getRegister(operand1);
     int value2 = isReg? cpu.getRegister(operand2) : operand2; // get value from register[opr2] if is reg  
-
     switch (opcode)
     {
         case (Opcode::ADD) : 
@@ -499,7 +532,6 @@ ExecutionResult ArithmeticInstruction::execute()
             execResult = ExecutionResult::InvalidInstruction;
             break;
     }
-
     if (execResult == ExecutionResult::Success) updateReg(operand1, result, true);
     return execResult;
 }
@@ -606,12 +638,10 @@ ShiftInstruction::ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2)
 ExecutionResult ShiftInstruction::execute()
 {
     if (!cpu.isValidReg(operand1)) return ExecutionResult::InvalidRegister;   // return error if invalid reg
-
     uint8_t dec = static_cast<uint8_t>(cpu.getRegister(operand1));   // cast to unsigned byte to avoid negative value
     bool binaryBits[8] = {};
     bool resultBits[8] = {};
     decimalToBinary(dec, binaryBits);
-
     switch (opcode)
     {
         case (Opcode::ROL) :
@@ -629,7 +659,6 @@ ExecutionResult ShiftInstruction::execute()
         default:
             return ExecutionResult::InvalidInstruction;
     }
-
     int value = binaryToDecimal(resultBits);
     updateReg(operand1, value);
     return ExecutionResult::Success;
