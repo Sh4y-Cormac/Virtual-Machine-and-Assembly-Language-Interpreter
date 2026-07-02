@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iomanip> // for setw and fill to format output
 #include <cstdio> // for sscanf
+#include <sstream>
 using namespace std;
 
 // MADE BY ZHEN LONG
@@ -154,7 +155,7 @@ class GeneralRegister : public Register
         }
 
 };
-
+// Done by Kar Fung
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
 {
@@ -199,6 +200,7 @@ public:
         uf = (result < -128);
         if (isArithmetic) 
         {
+            cf = (result >= 256); 
             cf = (result >= 256);
         }
     }
@@ -295,6 +297,7 @@ private:
     string operand1;
     string operand2;
 public:   
+    ParsedCommand() : opcode(""), operand1(""), operand2("") {}
     ParsedCommand(string opc, string opr1="", string opr2="") 
         : opcode(opc), operand1(opr1), operand2(opr2) {}
     string getOpcode() const { return opcode; }
@@ -489,9 +492,20 @@ int main()
     // Send everything to the CPU for processing
     CPU myCPU(&myFlags, myRegisters);
 
-    // testing script
-    myCPU.dump();
-    
+      // Create the Runner
+    Runner runner(&myCPU);
+
+    // Load and run the assembly program
+    char fileName[100];
+    cout << "Enter asm file name: ";
+    cin >> fileName;
+
+    if (runner.loadProgram(fileName))
+    {
+        runner.run();
+        myCPU.dump();
+    }
+
     return 0;
 }
 
@@ -1083,7 +1097,7 @@ ExecutionResult StackInstruction::execute()
         case (Opcode::PUSH) :
             return push();
         case (Opcode::POP) :
-            return push(); 
+            return pop(); 
         default:
             return ExecutionResult::InvalidInstruction;
     }
