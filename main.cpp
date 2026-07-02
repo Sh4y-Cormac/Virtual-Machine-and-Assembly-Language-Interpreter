@@ -106,7 +106,7 @@ private:
     bool of; // Overflow Flag
 
 public:
-    FlagRegister() 
+    FlagRegister() // this constructor function is used reset state by overwriting them
     {
         cf = false;
         zf = false;
@@ -132,7 +132,7 @@ public:
         else if (flagName == Flags::OF) of = false;
     }
 
-    // Core validation method to check arithmetic bounds
+    // Core validation method to check arithmetic bounds, it updates the flags to true or false based on the condition
     void updateFlags(int result, bool isArithmetic) 
     {
         // 1. Zero Flag (ZF): Set when the result of an operation is zero
