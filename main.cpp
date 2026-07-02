@@ -6,7 +6,6 @@
 #include <sstream>
 #include <iomanip> // for setw and fill to format output
 #include <cstdio> // for sscanf
-#include <sstream>
 using namespace std;
 
 /*
@@ -66,6 +65,67 @@ public:
     void push(int8_t value) { data[si++] = value; }
     int8_t pop() { return data[--si]; }
     int getSI() const { return si; }
+};
+
+// custom queue (circular queue)
+class MyQueue
+{
+private:
+    string* data;   // output string
+    int capacity;   // max cap
+    int frontIdx;   // front
+    int rearIdx;    // back    
+    int size;   // current size
+
+    // increase capacity (dynamic array/vector)
+    void resize()
+    {
+        int newCapacity = capacity * 2;
+        string* newData = new string[newCapacity];
+
+        for (int i = 0; i < size; i++)
+        { newData[i] = data[(frontIdx + i) % capacity]; }
+
+        delete[] data;
+        data = newData;
+        capacity = newCapacity;
+        frontIdx = 0;
+        rearIdx = size;
+    }
+
+public:
+    // constructor to initialise queue
+    MyQueue(int cap = 10)
+    : capacity(cap), frontIdx(0), rearIdx(0), size(0)
+    { data = new string[capacity](); }
+
+    // custom destructor to delete dynamically allocated memory space
+    ~MyQueue() { delete[] data; }
+
+    // enqueue data to the back
+    void enqueue(const string& value)
+    {
+        if (size == capacity)
+        { resize(); }
+
+        data[rearIdx] = value;
+        rearIdx = (rearIdx + 1) % capacity;
+        size++;
+    }
+
+    // remove data at the front
+    string dequeue()
+    {
+        if (size == 0)
+        { return ""; }
+
+        string value = data[frontIdx]; 
+        frontIdx = (frontIdx + 1) % capacity;
+        size--;
+        return value;
+    }
+
+    int getSize() const { return size; }
 };
 
 // custom vector template
@@ -321,76 +381,6 @@ public:
 
 /*
 ==========================================================
-MADE BY AL-SAKKAF, ZHEN LONG
-==========================================================
-*/
-// Loads programs, decodes instructions, delegates execution to `CPU`
-class ParsedCommand
-{
-private:
-    string opcode;
-    string operand1;
-    string operand2;
-public:   
-    ParsedCommand() : opcode(""), operand1(""), operand2("") {}
-    ParsedCommand(string opc, string opr1="", string opr2="") 
-        : opcode(opc), operand1(opr1), operand2(opr2) {}
-    string getOpcode() const { return opcode; }
-    string getOperand1() const { return operand1; }
-    string getOperand2() const { return operand2; }
-};
-
-// Runner loads the assembly program, parses each instruction,
-// creates the correct instruction object and executes it.
-class Runner
-{
-private:
-    CPU* cpu; // Pointer to the CPU
-    MyVector<ParsedCommand> programs;   // Stores parsed instructions
-    int instructionCount; // Total loaded instructions
-    MyVector<Instruction> instructions;
-
-    // Methods to format user input into information
-    bool isRegister(string text);   // Checks if an operand is a register (R0-R7)
-    int getRegisterNumber(string text); // Converts a register string into its register number
-    bool isBracket(string text); // Checks for indirect addressing (e.g. [R1])
-    string removeBracket(string text); // Removes square brackets from an operand
-    int getNumber(string text); // Converts a numeric string into an integer
-    Flags getFlagName(string text); // Converts a flag string into a Flags enum
-    Opcode getOpcodeName(string text); // Converts an opcode string into an Opcode enum
-
-    // Methods to load instructions into vector
-    Instruction* loadArithmeticInst(Opcode opc, string opr1, string opr2);
-    Instruction* loadIOInst(Opcode opc, string opr1);
-    Instruction* loadShiftInst(Opcode opc, string opr1, string opr2);
-    Instruction* loadDataMovementInst(Opcode opc, string opr1, string opr2);
-    Instruction* loadMOVInst(string opr1, string opr2);
-    Instruction* loadLOADInst(string opr1, string opr2);
-    Instruction* loadSTOREInst(string opr1, string opr2);
-    Instruction* loadStackInst(Opcode opc, string opr1);
-    Instruction* loadResetInst(Opcode opc, string opr1);
-
-public:
-    Runner(CPU* c);  // Constructor that links the Runner to the CPU
-
-    // methods to read line by line from .asm file and extract word by words
-    void cleanLine(char line[]); // Replaces commas and tabs with spaces before parsing
-    int countWords(char line[]); // Counts how many words/tokens are found in one assembly line
-    void parseLine(char line[], ParsedCommand& inst); // Splits one assembly instruction into opcode and operands
-    bool loadProgram(const char fileName[]); // Loads all assembly instructions from the specified file
-
-    // decode program into executable instruction
-    void decodeProgram();
-
-    // load instruction into specific dervied instructions class
-    void loadInstruction(Opcode opc, string opr1, string opr2);
-
-    // Executes every loaded instruction
-    void run();
-};
-
-/*
-==========================================================
 MADE BY ZHEN LONG
 ==========================================================
 */
@@ -432,13 +422,14 @@ class IOInstruction : public Instruction
 {
 private:
     int operand1;
+    MyQueue* outputQueue;
 
     // methods to perform input and output operation
     void input();
     void display() const;
 
 public:
-    IOInstruction(CPU& c, Opcode opc, int opr1); // constuctor to initialise data and call base class constructor
+    IOInstruction(CPU& c, Opcode opc, int opr1, MyQueue* outputQ); // constuctor to initialise data and call base class constructor
     ExecutionResult execute() override; // ensure that execute override function in base class (polymorphism)
 };
 
@@ -516,23 +507,87 @@ public:
 
 /*
 ==========================================================
+MADE BY AL-SAKKAF, ZHEN LONG
+==========================================================
+*/
+// Loads programs, decodes instructions, delegates execution to `CPU`
+class ParsedCommand
+{
+private:
+    string opcode;
+    string operand1;
+    string operand2;
+public:   
+    ParsedCommand() : opcode(""), operand1(""), operand2("") {}
+    ParsedCommand(string opc, string opr1="", string opr2="") 
+        : opcode(opc), operand1(opr1), operand2(opr2) {}
+    string getOpcode() const { return opcode; }
+    string getOperand1() const { return operand1; }
+    string getOperand2() const { return operand2; }
+};
+
+// Runner loads the assembly program, parses each instruction,
+// creates the correct instruction object and executes it.
+class Runner
+{
+private:
+    CPU* cpu; // Pointer to the CPU
+    MyVector<ParsedCommand> programs;   // Stores parsed instructions
+    MyVector<Instruction> instructions;
+    MyQueue* outputQueue;
+
+    // Methods to format user input into information
+    bool isRegister(string text);   // Checks if an operand is a register (R0-R7)
+    int getRegisterNumber(string text); // Converts a register string into its register number
+    bool isBracket(string text); // Checks for indirect addressing (e.g. [R1])
+    string removeBracket(string text); // Removes square brackets from an operand
+    int getNumber(string text); // Converts a numeric string into an integer
+    Flags getFlagName(string text); // Converts a flag string into a Flags enum
+    Opcode getOpcodeName(string text); // Converts an opcode string into an Opcode enum
+
+    // Methods to load instructions into vector
+    Instruction* loadArithmeticInst(Opcode opc, string opr1, string opr2);
+    Instruction* loadIOInst(Opcode opc, string opr1);
+    Instruction* loadShiftInst(Opcode opc, string opr1, string opr2);
+    Instruction* loadDataMovementInst(Opcode opc, string opr1, string opr2);
+    Instruction* loadMOVInst(string opr1, string opr2);
+    Instruction* loadLOADInst(string opr1, string opr2);
+    Instruction* loadSTOREInst(string opr1, string opr2);
+    Instruction* loadStackInst(Opcode opc, string opr1);
+    Instruction* loadResetInst(Opcode opc, string opr1);
+
+public:
+    Runner(CPU* c, MyQueue* outputQ);  // Constructor that links the Runner to the CPU
+
+    // methods to read line by line from .asm file and extract word by words
+    void cleanLine(char line[]); // Replaces commas and tabs with spaces before parsing
+    int countWords(char line[]); // Counts how many words/tokens are found in one assembly line
+    void parseLine(char line[], ParsedCommand& inst); // Splits one assembly instruction into opcode and operands
+    bool loadProgram(const char fileName[]); // Loads all assembly instructions from the specified file
+
+    // decode program into executable instruction
+    void decodeProgram();
+
+    // load instruction into specific dervied instructions class
+    void loadInstruction(Opcode opc, string opr1, string opr2);
+
+    // Executes every loaded instruction
+    void run();
+};
+
+/*
+==========================================================
 MADE BY UMAR
 ==========================================================
 */
 int main()
 {
-    //initialize the flag register
-    FlagRegister myFlags;
-
-    // initialize the R0-R7 general registers array
-    GeneralRegister myRegisters[8];
-
-    // Send everything to the CPU for processing
-    CPU myCPU(&myFlags, myRegisters);
-
-      // Create the Runner
-    Runner runner(&myCPU);
-
+    FlagRegister myFlags; //initialize the flag register
+    GeneralRegister myRegisters[8]; // initialize the R0-R7 general registers array
+    CPU myCPU(&myFlags, myRegisters); // Send everything to the CPU for processing
+    MyQueue outputQueue; // initialise queue for DISPLAY instruction (implementation of queue)
+    Runner runner(&myCPU, &outputQueue); // Create the Runner
+    
     // Load and run the assembly program
     char fileName[100];
     cout << "Enter asm file name: ";
@@ -542,6 +597,10 @@ int main()
     {
         runner.decodeProgram();
         runner.run();
+
+        while (outputQueue.getSize())
+        { cout << outputQueue.dequeue(); }
+
         myCPU.dump();
     }
 
@@ -622,7 +681,7 @@ Instruction* Runner::loadArithmeticInst(Opcode opc, string opr1, string opr2)
 }
 
 Instruction* Runner::loadIOInst(Opcode opc, string opr1)
-{ return new IOInstruction(*cpu, opc, getRegisterNumber(opr1)); }
+{ return new IOInstruction(*cpu, opc, getRegisterNumber(opr1), outputQueue); }
 
 Instruction* Runner::loadShiftInst(Opcode opc, string opr1, string opr2)
 { return new ShiftInstruction(*cpu, opc, getRegisterNumber(opr1), getNumber(opr2)); }
@@ -694,9 +753,9 @@ Instruction* Runner::loadStackInst(Opcode opc, string opr1)
 Instruction* Runner::loadResetInst(Opcode opc, string opr1)
 { return new RESETInstruction(*cpu, Opcode::RESET, getFlagName(opr1)); }
 
-Runner::Runner(CPU* c)
+Runner::Runner(CPU* c, MyQueue* outputQ)
     : cpu(c),
-    instructionCount(0)
+    outputQueue(outputQ)
 {}
 
 void Runner::cleanLine(char line[])
@@ -738,7 +797,6 @@ bool Runner::loadProgram(const char fileName[])
         return false;
     }
 
-    instructionCount = 0;
     char line[100];
 
     while (file.getline(line, 100))
@@ -763,7 +821,6 @@ bool Runner::loadProgram(const char fileName[])
             continue;
         }
         programs.pushBack(inst);
-        instructionCount++;
     }
 
     file.close();
@@ -772,11 +829,14 @@ bool Runner::loadProgram(const char fileName[])
 
 void Runner::decodeProgram()
 {
-    for (int i=0; i < Runner::instructionCount; i++)
+    for (int i=0; i < Runner::programs.getSize(); i++)
     {
         Opcode opc = getOpcodeName(programs[i]->getOpcode());
-        if (opc == Opcode::COUNT) return;
-
+        if (opc == Opcode::COUNT) 
+        {
+            handleExecResult(ExecutionResult::InvalidInstruction, i);
+            continue;
+        }
         string opr1 = programs[i]->getOperand1();
         string opr2 = programs[i]->getOperand2();
         loadInstruction(opc, opr1, opr2);
@@ -812,12 +872,13 @@ void Runner::loadInstruction(Opcode opc, string opr1, string opr2)
 
 void Runner::run()
 {
+    int instructionCount = instructions.getSize();
     while(cpu->getPC() < instructionCount)
     {
         int pc = cpu->getPC();
         ExecutionResult execResult = instructions[pc]->execute();   // (polymorphism) calling execute() by using base ptr
         cpu->incrementPC();
-        if (!handleExecResult(execResult, pc)) { return; }
+        if (!handleExecResult(execResult, (pc+1))) { return; }
     }
 }
 
@@ -834,24 +895,24 @@ bool handleExecResult(ExecutionResult execResult, int pc)
         case (ExecutionResult::Success) :
             return true;
         case (ExecutionResult::InvalidInstruction) :
-            cerr << "Error: Invalid Instruction Opcode in Instruction " << pc;
+            cerr << "Error: Invalid Instruction Opcode in Instruction " << pc << endl;
             break;
         case (ExecutionResult::InvalidRegister) :
-            cerr << "Error: Invalid Register in Instruction " << pc;
+            cerr << "Error: Invalid Register in Instruction " << pc << endl;
             break;
         case (ExecutionResult::InvalidFlag) :
-            cerr << "Error: Invalid Flag Register in Instruction " << pc;
+            cerr << "Error: Invalid Flag Register in Instruction " << pc << endl;
             break;  
         case (ExecutionResult::MemoryFault) :
             break;  
         case (ExecutionResult::DivisionByZero) :
-            cerr << "Error: Division by Zero in Instruction " << pc;
+            cerr << "Error: Division by Zero in Instruction " << pc << endl;
             break;  
         case (ExecutionResult::PushToFullStack) :
-            cerr << "Error: Pushing to full Stack in Instruction " << pc;
+            cerr << "Error: Pushing to full Stack in Instruction " << pc << endl;
             break;  
         case (ExecutionResult::PopFromEmptyStack) :
-            cerr << "Error: Popping from empty Stack in Instruction " << pc;
+            cerr << "Error: Popping from empty Stack in Instruction " << pc << endl;
             break;  
         default:
             break;    
@@ -963,9 +1024,10 @@ ExecutionResult ArithmeticInstruction::div(int& result, int val1, int val2)
     return ExecutionResult::Success;
 }
 
-IOInstruction::IOInstruction(CPU& c, Opcode opc, int opr1) 
+IOInstruction::IOInstruction(CPU& c, Opcode opc, int opr1, MyQueue* outputQ) 
     : Instruction(c, opc),
-    operand1(opr1)
+    operand1(opr1),
+    outputQueue(outputQ)
 {}
 
 ExecutionResult IOInstruction::execute()
@@ -998,7 +1060,9 @@ void IOInstruction::input()
 void IOInstruction::display() const
 {
     int value = static_cast<int>(cpu.getRegister(operand1)); // static cast to int to print as number (int8_t will print char)
-    cout << "DISPLAY: R[" << operand1 << "]:" << value << endl << endl;
+    stringstream ss;
+    ss << "R[" << operand1 << "]: " << value << endl;
+    outputQueue->enqueue(ss.str());
 }
 
 void ShiftInstruction::decimalToBinary(int dec, bool* bits)
@@ -1028,7 +1092,7 @@ int ShiftInstruction::getIndex(int idx)
 {
     if (idx > 7) return (idx-8);
     else if (idx < 0) return (idx+8);
-    else return idx;
+    else return (idx%8);
 }
     
 ShiftInstruction::ShiftInstruction(CPU& c, Opcode opc, int opr1, int opr2) 
@@ -1127,7 +1191,7 @@ ExecutionResult DataMovementInstruction::execute()
 ExecutionResult DataMovementInstruction::mov()
 {
     int value;
-    ExecutionResult execResult;
+    ExecutionResult execResult = ExecutionResult::Success;
 
     if (indirect) 
     {
@@ -1136,7 +1200,7 @@ ExecutionResult DataMovementInstruction::mov()
     }
     else value = isReg? cpu.getRegister(operand2) : operand2;
 
-    updateReg(operand1, value);
+    if (execResult == ExecutionResult::Success) updateReg(operand1, value);
     return execResult;
 }
 
@@ -1145,7 +1209,7 @@ ExecutionResult DataMovementInstruction::load()
     int value;
     int memAdr = isReg? cpu.getRegister(operand2) : operand2;
     ExecutionResult execResult = cpu.getMemory(memAdr, value);
-    updateReg(operand1, value);
+    if (execResult == ExecutionResult::Success) updateReg(operand1, value);
     return execResult;
 }
 
