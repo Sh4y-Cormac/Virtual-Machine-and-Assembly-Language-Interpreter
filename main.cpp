@@ -8,6 +8,13 @@
 #include <sstream>
 using namespace std;
 
+
+/*
+==========================================================
+MADE BY ZHEN LONG
+==========================================================
+*/
+
 enum class Flags
 {
     OF, UF, CF, ZF, COUNT
@@ -37,7 +44,14 @@ enum class ExecutionResult
 
 bool handleExecResult(ExecutionResult, int);
 
-// MADE BY UMAR
+
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
+
+
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -45,22 +59,25 @@ protected:
     int8_t value; // value of the 8-bit itself
 
 public:
+    // constructor for register
     Register() : value()
     {}
 
+    // sets the value of the register based on the parameter (setter)
     void setValue(int8_t val)
     {
         value = val;
     }
 
+    // returns the value that is currently inside the register (getter)
     int8_t getValue() const
     {
         return value;
     }
 };
 
-// MADE BY UMAR
-// implementation of the register movement  (inheritance from Register)
+
+// Contains R0-R7 registers that is initialized by the CPU.  (inheritance from Register)
 class GeneralRegister : public Register
 {
     public:
@@ -72,6 +89,12 @@ class GeneralRegister : public Register
         }
 
 };
+
+/*
+==========================================================
+MADE BY KAR FUNG
+==========================================================
+*/
 
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
@@ -129,7 +152,12 @@ public:
     }
 };
 
-// MADE BY UMAR
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
+
 // Handles storage and addressing logic over a vector of bytes
 class Memory
 {
@@ -146,6 +174,7 @@ public:
             storage[i] = 0;
         }
     }
+    // updates the chosen memmory index with the value that the user specifies (setter)
     void write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
@@ -157,6 +186,7 @@ public:
             cerr << "Memory Access Violation: Write at " << address << endl;
         }
     }
+    // returns the value stored in the memory based on the index chosen.
     int8_t read(size_t address) const
     {
         if (address < Memory_Size)
@@ -168,16 +198,23 @@ public:
     }
 };
 
+/*
+==========================================================
+MADE BY UMAR, ZHEN LONG
+==========================================================
+*/
+
 // Contains registers, memory, PC, executes instructions 
 class CPU
 {
 private:
+    // private members to be used by the CPU for arithmetic and movement processes.
     Memory memory;          
     FlagRegister* flags;    
     GeneralRegister* registers;
     int pc=0;
 
-    // Your Assigned Additions to align with requirements:
+    // Stack index AKA program counter
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
     int si=0;               // Stack Index (SI) register starting at 0
 
@@ -207,6 +244,12 @@ public:
 
     void dump() const;
 };
+
+/*
+==========================================================
+MADE BY AL-SAKKAF
+==========================================================
+*/
 
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class ParsedCommand
@@ -238,7 +281,7 @@ public:
     virtual ExecutionResult execute() = 0; // pure virtual: causes classes to implement.
 };
 
-// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (polymorphism of Instuction)
+// Handles 'ADD', 'SUB' and other arithmetic instructions for assembly (polymorphism of Instruction)
 class ArithmeticInstruction : public Instruction
 {   
 private:
@@ -323,7 +366,11 @@ public:
 };
 
 
-// MADE BY ALSAKKAF
+/*
+==========================================================
+MADE BY ALSAKKAF
+==========================================================
+*/
 // Runner loads the assembly program, parses each instruction,
 // creates the correct instruction object and executes it.
 class Runner
@@ -615,11 +662,17 @@ public:
     }
 };
 
+
+/*
+==========================================================
+MADE BY UMAR
+==========================================================
+*/
+
+// All the components of the CPU are initialized and fed into the CPU and Runner.
+// Handles input function for name of .asm file, also checks if its legit.
 int main()
 {
-    // *****************************************************************
-    // NOTE FOR ALSAKKAF : FEEL FREE TO CHANGE THE MAIN TO FIT YOUR RUNNER
-    // *****************************************************************
     // initialize the 64 bit memory
     Memory myMemory;
 
@@ -648,6 +701,13 @@ int main()
 
     return 0;
 }
+
+
+/*
+==========================================================
+MADE BY ZHEN LONG
+==========================================================
+*/
 
 // helper function to handle execution result and errors
 bool handleExecResult(ExecutionResult execResult, int pc)
