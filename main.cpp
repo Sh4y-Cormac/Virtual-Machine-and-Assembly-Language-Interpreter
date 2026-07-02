@@ -8,9 +8,6 @@
 #include <sstream>
 using namespace std;
 
-// ==============================================
-// MADE BY ZHEN LONG
-// ==============================================
 enum class Flags
 {
     OF, UF, CF, ZF, COUNT
@@ -40,10 +37,7 @@ enum class ExecutionResult
 
 bool handleExecResult(ExecutionResult, int);
 
-// ==============================================
-// MADE BY UMAR ZAID
-// ==============================================
-
+// MADE BY UMAR
 // Base class of register (Encapsulates an 8-bit signed value and flag update logic) 
 class Register
 {
@@ -51,25 +45,22 @@ protected:
     int8_t value; // value of the 8-bit itself
 
 public:
-    // constructor
     Register() : value()
     {}
 
-    // sets the value of the current register into the parameter that is given 
     void setValue(int8_t val)
     {
         value = val;
     }
 
-    // outputs the current value that is stored inside the register
     int8_t getValue() const
     {
         return value;
     }
 };
 
-
-// Basically a container for the R0-R7 registers, we initialized all 8 registers using this.   (inheritance from Register)
+// MADE BY UMAR
+// implementation of the register movement  (inheritance from Register)
 class GeneralRegister : public Register
 {
     public:
@@ -82,9 +73,6 @@ class GeneralRegister : public Register
 
 };
 
-// ==============================================
-// MADE BY KAR FUNG
-// ==============================================
 // registers boolean values based on CF OF UF ZF flags
 class FlagRegister 
 {
@@ -95,7 +83,7 @@ private:
     bool of; // Overflow Flag
 
 public:
-    FlagRegister() // this constructor function is used reset state by overwriting them
+    FlagRegister() 
     {
         cf = false;
         zf = false;
@@ -121,7 +109,7 @@ public:
         else if (flagName == Flags::OF) of = false;
     }
 
-    // Core validation method to check arithmetic bounds it updates the flags to true or false based on the condition
+    // Core validation method to check arithmetic bounds
     void updateFlags(int result, bool isArithmetic) 
     {
         // 1. Zero Flag (ZF): Set when the result of an operation is zero
@@ -136,15 +124,12 @@ public:
         // 4. Carry Flag (CF): Set if calculated result of math instructions exceeds 8-bit capacity
         if (isArithmetic) 
         {
-            cf = (result >= 256); 
+            cf = (result >= 256); // 0-255 (uint8_t)
         }
     }
 };
 
-// ==============================================
-// MADE BY UMAR ZAID
-// ==============================================
-
+// MADE BY UMAR
 // Handles storage and addressing logic over a vector of bytes
 class Memory
 {
@@ -161,7 +146,6 @@ public:
             storage[i] = 0;
         }
     }
-        // changes the value inside the address.
     void write(size_t address, int8_t value)
     {
         if (address < Memory_Size)
@@ -173,7 +157,6 @@ public:
             cerr << "Memory Access Violation: Write at " << address << endl;
         }
     }
-        // outputs the value inside the address
     int8_t read(size_t address) const
     {
         if (address < Memory_Size)
@@ -194,13 +177,12 @@ private:
     GeneralRegister* registers;
     int pc=0;
 
+    // Your Assigned Additions to align with requirements:
     int8_t stackStorage[8]; // The 8-byte system stack managed internally
     int si=0;               // Stack Index (SI) register starting at 0
 
 public:
-    // ==============================================
-    // MADE BY ZHEN LONG
-    // ==============================================
+    // cpu functions done by LIM
     CPU(FlagRegister* flag, GeneralRegister* reg) : flags(flag), registers(reg) {}
 
     int8_t getMemory(int memAdr) const { return memory.read(memAdr); }
@@ -226,9 +208,6 @@ public:
     void dump() const;
 };
 
-// ==============================================
-// MADE BY AL-SAKKAF
-// ==============================================
 // Loads programs, decodes instructions, delegates execution to `CPU`
 class ParsedCommand
 {
@@ -245,9 +224,6 @@ public:
     string getOperand2() const { return operand2; }
 };
 
-// ==============================================
-// MADE BY ZHEN LONG
-// ==============================================
 // all assembly commands logic go here e.g 'ADD' or 'MOV' (abstract base class)
 class Instruction
 {
@@ -346,38 +322,44 @@ public:
     ExecutionResult execute() override;
 };
 
-// ==============================================
+
 // MADE BY ALSAKKAF
-// ==============================================
+// Runner loads the assembly program, parses each instruction,
+// creates the correct instruction object and executes it.
 class Runner
 {
 private:
-    CPU* cpu;
-    ParsedCommand* programs;
-    int instructionCount;
+    CPU* cpu;                     // Pointer to the CPU
+    ParsedCommand* programs;      // Stores parsed instructions
+    int instructionCount;         // Total loaded instructions
 
+    // Checks if an operand is a register (R0-R7)
     bool isRegister(string text)
     {
         return text.length() == 2 && text[0] == 'R' && text[1] >= '0' && text[1] <= '7';
     }
 
+    // Converts a register string into its register number
     int getRegisterNumber(string text)
     {
         if (isRegister(text)) return text[1] - '0';
         return -1;
     }
 
+    // Checks for indirect addressing (e.g. [R1])
     bool isBracket(string text)
     {
         return text.length() >= 3 && text[0] == '[' && text[text.length() - 1] == ']';
     }
 
+    // Removes square brackets from an operand
     string removeBracket(string text)
     {
         if (isBracket(text)) return text.substr(1, text.length() - 2);
         return text;
     }
 
+    // Converts a numeric string into an integer
     int getNumber(string text)
     {
         stringstream ss(text);
@@ -386,6 +368,7 @@ private:
         return value;
     }
 
+    // Converts a flag string into a Flags enum
     Flags getFlagName(string text)
     {
         if (text == "OF") return Flags::OF;
@@ -394,6 +377,7 @@ private:
         return Flags::ZF;
     }
 
+    // Converts an opcode string into an Opcode enum
     Opcode getOpcodeName(string text)
     {
         if (text == "ADD") return Opcode::ADD;
@@ -417,6 +401,7 @@ private:
     }
 
 public:
+    // Default constructor
     Runner()
     {
         cpu = NULL;
@@ -424,6 +409,7 @@ public:
         instructionCount = 0;
     }
 
+    // Constructor that links the Runner to the CPU
     Runner(CPU* c)
     {
         cpu = c;
@@ -431,11 +417,13 @@ public:
         instructionCount = 0;
     }
 
+    // Assigns a CPU to the Runner
     void setCPU(CPU* c)
     {
         cpu = c;
     }
 
+    // Replaces commas and tabs with spaces before parsing
     void cleanLine(char line[])
     {
         for (int i = 0; line[i] != '\0'; i++)
@@ -445,6 +433,20 @@ public:
         }
     }
 
+    // Counts how many words/tokens are found in one assembly line
+    int countWords(char line[])
+    {
+        string word;
+        stringstream ss(line);
+        int count = 0;
+
+        while (ss >> word)
+            count++;
+
+        return count;
+    }
+
+    // Splits one assembly instruction into opcode and operands
     void parseLine(char line[], ParsedCommand& inst)
     {
         cleanLine(line);
@@ -456,6 +458,7 @@ public:
         inst = ParsedCommand(opcode, op1, op2);
     }
 
+    // Loads all assembly instructions from the specified file
     bool loadProgram(const char fileName[])
     {
         ifstream file(fileName);
@@ -471,10 +474,20 @@ public:
 
         while (file.getline(line, 100))
         {
+            cleanLine(line);
+
+            if (countWords(line) == 0)
+                continue;
+
+            if (countWords(line) > 3)
+            {
+                cerr << "Error: More than one instruction found on one line.\n";
+                file.close();
+                return false;
+            }
+
             ParsedCommand inst;
             parseLine(line, inst);
-
-            if (inst.getOpcode() == "") continue;
 
             programs[instructionCount] = inst;
             instructionCount++;
@@ -485,6 +498,7 @@ public:
         return true;
     }
 
+    // Displays a parsed instruction (used for debugging)
     void displayInstruction(ParsedCommand inst)
     {
         cout << inst.getOpcode();
@@ -493,6 +507,7 @@ public:
         cout << endl;
     }
 
+    // Executes every loaded instruction
     void run()
     {
         if (cpu == NULL) return;
@@ -593,18 +608,18 @@ public:
         }
     }
 
+    // Returns the total number of loaded instructions
     int getInstructionCount()
     {
         return instructionCount;
     }
 };
 
-// ==============================================
-// MADE BY UMAR ZAID
-// ==============================================
-
 int main()
 {
+    // *****************************************************************
+    // NOTE FOR ALSAKKAF : FEEL FREE TO CHANGE THE MAIN TO FIT YOUR RUNNER
+    // *****************************************************************
     // initialize the 64 bit memory
     Memory myMemory;
 
@@ -625,7 +640,6 @@ int main()
     cout << "Enter asm file name: ";
     cin >> fileName;
 
-    // checks if the file is actually a .asm, and proceeds to do the computation and processing.
     if (runner.loadProgram(fileName))
     {
         runner.run();
@@ -635,9 +649,6 @@ int main()
     return 0;
 }
 
-// ==============================================
-// MADE BY AL SAKKAF
-// ==============================================
 // helper function to handle execution result and errors
 bool handleExecResult(ExecutionResult execResult, int pc)
 {
@@ -670,9 +681,6 @@ bool handleExecResult(ExecutionResult execResult, int pc)
     return false;
 }
 
-// ==============================================
-// MADE BY ZHEN LONG
-// ==============================================
 // function defintion for cpu.dump
 void CPU::dump() const
 {
